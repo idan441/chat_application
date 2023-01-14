@@ -33,6 +33,10 @@ class HTTPTemplateBaseModelSingleUserDetails(HTTPTemplateBaseModel):
     content: UserDetailsBaseModule
 
 
+class HTTPTemplateBaseModelError(HTTPTemplateBaseModel):
+    """ Returns an error response for bad HTTP requests with no "content" field value """
+
+
 class HTTPTemplateBaseModelAdminLoginResponse(HTTPTemplateBaseModel):
     """ Return response for admin login """
     content: Dict

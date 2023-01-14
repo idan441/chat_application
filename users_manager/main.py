@@ -1,8 +1,8 @@
 import os
-from typing import List
+from typing import List, Union
 import uuid
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Depends, Request, Response
+from fastapi import FastAPI, HTTPException, Depends, Request, Response, status as HTTP_STATUS_CODES
 from loguru import logger
 
 from sqlalchemy.orm import Session
@@ -36,8 +36,10 @@ async def http_middleware(request: Request, call_next):
     return response
 
 
-@app.get("/admin/users/get", response_model=http_responses_shcemas.HTTPTemplateBaseModelListUsersDetails)
-def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+@app.get("/admin/users/get",
+         status_code=HTTP_STATUS_CODES.HTTP_200_OK,
+         response_model=http_responses_shcemas.HTTPTemplateBaseModelListUsersDetails)
+def get_users_list(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     """ Returns a list of all users. Optional: filter by user ID or email """
     users: List[models.User] = users_table_crud_commands.get_users_list(db, skip=skip, limit=limit)
     return http_responses_shcemas.HTTPTemplateBaseModelListUsersDetails(
@@ -46,35 +48,98 @@ def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     )
 
 
-@app.post("/admin/users/create", response_model=http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails)
-def create_user(user: users_schemas.UserCreateBaseModule, db: Session = Depends(get_db)):
+@app.get("/admin/users/get/{user_id}",
+         status_code=HTTP_STATUS_CODES.HTTP_200_OK,
+         response_model=Union[http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails,
+                              http_responses_shcemas.HTTPTemplateBaseModelError])
+def read_user_details_by_id(user_id: int, response: Response, db: Session = Depends(get_db)):
+    """ Returns user details based on user ID """
+    try:
+        user: models.User = users_table_crud_commands.get_user_by_id(db, user_id=user_id)
+        return http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails(
+            content=user,
+            text_message="Successfully returned user details"
+        )
+    except users_table_crud_commands.UserNotFoundException:
+        response.status_code = HTTP_STATUS_CODES.HTTP_404_NOT_FOUND
+        return http_responses_shcemas.HTTPTemplateBaseModelError(
+            text_message="User does not exist",
+            is_success=False,
+        )
+
+
+@app.post("/admin/users/create",
+          status_code=HTTP_STATUS_CODES.HTTP_201_CREATED,
+          response_model=Union[http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails,
+                               http_responses_shcemas.HTTPTemplateBaseModelError])
+def create_user(user: users_schemas.UserCreateBaseModule, response: Response, db: Session = Depends(get_db)):
     """ Creates a new user """
-    db_user: models.User = users_table_crud_commands.get_user_by_email(db, email=user.email)
-    if db_user:
-        raise HTTPException(status_code=400, detail={1: "Email already registered"})
-    return http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails(
-        content=users_table_crud_commands.create_user(db=db, user=user),
-        text_message="User created successfully!"
-    )
+    try:
+        created_user_details: models.User = users_table_crud_commands.create_user(db=db, user=user)
+        return http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails(
+            content=created_user_details,
+            text_message="User created successfully"
+        )
+    except users_table_crud_commands.EmailAddressAlreadyExistsException:
+        response.status_code = HTTP_STATUS_CODES.HTTP_400_BAD_REQUEST
+        return http_responses_shcemas.HTTPTemplateBaseModelError(
+            text_message="Email already registered with an existing user",
+            is_success=False,
+        )
 
 
-@app.post("/admin/users/edit", response_model=http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails)
-def edit_user(user: users_schemas.UserUpdateBaseModule, db: Session = Depends(get_db)):
+@app.post("/admin/users/edit",
+          status_code=HTTP_STATUS_CODES.HTTP_200_OK,
+          response_model=Union[http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails,
+                               http_responses_shcemas.HTTPTemplateBaseModelError])
+def edit_user(user: users_schemas.UserUpdateBaseModule, response: Response, db: Session = Depends(get_db)):
     """ Edits a user """
-    updated_user: models.User = users_table_crud_commands.edit_user(db, user=user)
-    return http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails(
-        content=updated_user,
-        text_message="User updated successfully!"
-    )
+    try:
+        updated_user: models.User = users_table_crud_commands.edit_user(db, user=user)
+        return http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails(
+            content=updated_user,
+            text_message="User updated successfully"
+        )
+    except users_table_crud_commands.EmailAddressAlreadyExistsException:
+        response.status_code = HTTP_STATUS_CODES.HTTP_400_BAD_REQUEST
+        return http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails(
+            content=user,
+            text_message="Failed creating user - given email belongs to an existing user",
+            is_success=False
+        )
+    except users_table_crud_commands.UserFailedDatabaseUpdateException:
+        response.status_code = HTTP_STATUS_CODES.HTTP_400_BAD_REQUEST
+        return http_responses_shcemas.HTTPTemplateBaseModelError(
+            content=user,
+            text_message="Failed updating user details, check parameters sent in the request",
+            is_success=False,
+        )
+    except users_table_crud_commands.UserNotFoundException:
+        response.status_code = HTTP_STATUS_CODES.HTTP_404_NOT_FOUND
+        return http_responses_shcemas.HTTPTemplateBaseModelError(
+            text_message="User does not exists with this ID",
+            is_success=False,
+        )
 
 
-@app.delete("/admin/users/delete")
-def delete_user(user: users_schemas.UserIdBaseModal, db: Session = Depends(get_db)):
+@app.delete("/admin/users/delete",
+            status_code=HTTP_STATUS_CODES.HTTP_200_OK,
+            response_model=Union[http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails,
+                                 http_responses_shcemas.HTTPTemplateBaseModelError])
+def delete_user(user: users_schemas.UserIdBaseModal, response: Response, db: Session = Depends(get_db)):
     """ Deletes a user """
-    db_user: models.User = users_table_crud_commands.get_user_by_id(db, user_id=user.user_id)
-    if db_user:
-        return users_table_crud_commands.delete_user(db=db, user=user)
-    raise HTTPException(status_code=400, detail="User isn't found")
+    try:
+        deleted_user_details: models.User = users_table_crud_commands.delete_user(db=db, user=user)
+        return http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails(
+            content=deleted_user_details,
+            text_message="User deleted successfully"
+        )
+    except users_table_crud_commands.UserNotFoundException:
+        response.status_code = HTTP_STATUS_CODES.HTTP_404_NOT_FOUND
+        return http_responses_shcemas.HTTPTemplateBaseModelError(
+            text_message="User does not exists with this ID",
+            is_success=False,
+        )
 
 
 @app.post("/admin/login")

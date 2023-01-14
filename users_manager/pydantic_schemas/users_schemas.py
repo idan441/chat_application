@@ -11,6 +11,11 @@ class UserIdBaseModal(BaseModel):
     user_id: int
 
 
+class UserEmailBaseModal(BaseModel):
+    """ A Pydantic base model which includes only a user email used for querying users"""
+    email: str
+
+
 class UserCreateBaseModule(BaseModel):
     """ A Pydantic base model for creating a new user """
     email: str
