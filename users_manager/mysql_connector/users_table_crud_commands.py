@@ -1,3 +1,4 @@
+from typing import List
 from sqlalchemy.orm import Session
 
 from . import models
@@ -9,7 +10,7 @@ Defines top-level methods for manipulating data in the users table
 """
 
 
-def get_user_by_id(db: Session, user_id: int):
+def get_user_by_id(db: Session, user_id: int) -> models.User:
     """ Returns a user's details from the users table according to his user ID
 
     :param db:
@@ -19,7 +20,7 @@ def get_user_by_id(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.user_id == user_id).first()
 
 
-def get_user_by_email(db: Session, email: str):
+def get_user_by_email(db: Session, email: str) -> models.User:
     """ Returns a user's details from the users table according to his email
 
     :param db:
@@ -29,7 +30,7 @@ def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
 
 
-def get_users_list(db: Session, skip: int = 0, limit: int = 100):
+def get_users_list(db: Session, skip: int = 0, limit: int = 100) -> List[models.User]:
     """ Returns a list of all users in the users table
 
     :param db:
@@ -40,7 +41,7 @@ def get_users_list(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.User).offset(skip).limit(limit).all()
 
 
-def create_user(db: Session, user: users_schemas.UserCreateBaseModule):
+def create_user(db: Session, user: users_schemas.UserCreateBaseModule) -> models.User:
     """ Creates a user in the users table
 
     :param db:
@@ -55,7 +56,7 @@ def create_user(db: Session, user: users_schemas.UserCreateBaseModule):
     return db_user
 
 
-def edit_user(db: Session, user: users_schemas.UserUpdateBaseModule):
+def edit_user(db: Session, user: users_schemas.UserUpdateBaseModule) -> models.User:
     """ Edits an existing user in the users table
     Will updated only fields (email, password, is_active) with a given value, fields with null value will not be updated
 
@@ -78,7 +79,7 @@ def edit_user(db: Session, user: users_schemas.UserUpdateBaseModule):
     return db_user
 
 
-def delete_user(db: Session, user: users_schemas.UserIdBaseModal):
+def delete_user(db: Session, user: users_schemas.UserIdBaseModal) -> models.User:
     """ Deletes a user from the users table
 
     :param db:

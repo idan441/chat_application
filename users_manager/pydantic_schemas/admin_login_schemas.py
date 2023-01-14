@@ -7,6 +7,6 @@ Pydantic base models used for accepting HTTP requests data regarding admin login
 
 
 class LoginDetailsModal(BaseModel):
-    """ A Pydantic base model for admin login details """
+    """ A Pydantic base model for admin login details, used to send HTTP request for login """
     username: str
     password: str

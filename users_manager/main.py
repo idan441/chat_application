@@ -1,4 +1,5 @@
 import os
+from typing import List
 import uuid
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends, Request, Response
@@ -6,7 +7,7 @@ from loguru import logger
 
 from sqlalchemy.orm import Session
 from mysql_connector import users_table_crud_commands, models
-from pydantic_schemas import users_schemas, admin_login_schemas
+from pydantic_schemas import users_schemas, admin_login_schemas, http_responses_shcemas
 from mysql_connector.database import SessionLocal, engine
 from logger.custom_logger import configure_custom_logger
 
@@ -35,36 +36,45 @@ async def http_middleware(request: Request, call_next):
     return response
 
 
-@app.get("/admin/users/get", response_model=list[users_schemas.UserDetailsBaseModule])
+@app.get("/admin/users/get", response_model=http_responses_shcemas.HTTPTemplateBaseModelListUsersDetails)
 def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     """ Returns a list of all users. Optional: filter by user ID or email """
-    users = users_table_crud_commands.get_users_list(db, skip=skip, limit=limit)
-    return users
+    users: List[models.User] = users_table_crud_commands.get_users_list(db, skip=skip, limit=limit)
+    return http_responses_shcemas.HTTPTemplateBaseModelListUsersDetails(
+        content=users,
+        text_message="Successfully returned users list"
+    )
 
 
-@app.post("/admin/users/create", response_model=users_schemas.UserDetailsBaseModule)
+@app.post("/admin/users/create", response_model=http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails)
 def create_user(user: users_schemas.UserCreateBaseModule, db: Session = Depends(get_db)):
     """ Creates a new user """
-    db_user = users_table_crud_commands.get_user_by_email(db, email=user.email)
+    db_user: models.User = users_table_crud_commands.get_user_by_email(db, email=user.email)
     if db_user:
         raise HTTPException(status_code=400, detail={1: "Email already registered"})
-    return users_table_crud_commands.create_user(db=db, user=user)
+    return http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails(
+        content=users_table_crud_commands.create_user(db=db, user=user),
+        text_message="User created successfully!"
+    )
 
 
-@app.post("/admin/users/edit")
+@app.post("/admin/users/edit", response_model=http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails)
 def edit_user(user: users_schemas.UserUpdateBaseModule, db: Session = Depends(get_db)):
     """ Edits a user """
-    db_user = users_table_crud_commands.edit_user(db, user=user)
-    return {"message": "User updated!", "user": db_user}
+    updated_user: models.User = users_table_crud_commands.edit_user(db, user=user)
+    return http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails(
+        content=updated_user,
+        text_message="User updated successfully!"
+    )
 
 
 @app.delete("/admin/users/delete")
 def delete_user(user: users_schemas.UserIdBaseModal, db: Session = Depends(get_db)):
     """ Deletes a user """
-    db_user = users_table_crud_commands.get_user_by_id(db, user_id=user.user_id)
+    db_user: models.User = users_table_crud_commands.get_user_by_id(db, user_id=user.user_id)
     if db_user:
         return users_table_crud_commands.delete_user(db=db, user=user)
-    raise HTTPException(status_code=400, detail="Email already registered")
+    raise HTTPException(status_code=400, detail="User isn't found")
 
 
 @app.post("/admin/login")
@@ -101,7 +111,7 @@ async def chat_be_authenticate():
     return {"message": "Hello World"}
 
 
-@app.get("/chat_be/user/{user_id}", response_model=users_schemas.UserDetailsBaseModule)
+@app.get("/chat_be/user/{user_id}", response_model=http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails)
 def chat_be_read_user(user_id: int, db: Session = Depends(get_db)):
     """ Returns a specific user details by its user ID """
     db_user = users_table_crud_commands.get_user_by_id(db, user_id=user_id)
