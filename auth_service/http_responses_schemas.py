@@ -1,6 +1,11 @@
 from pydantic import BaseModel
 
 
+"""
+Base models for HTTP response returned by the auth service application
+"""
+
+
 class HTTPTemplateBaseModel(BaseModel):
     """ A basic template for all HTTP responses returned by the auth_service
 
@@ -25,3 +30,8 @@ class HTTPTemplateBaseModelPublicKey(HTTPTemplateBaseModel):
 class HTTPTemplateBaseModelJWTToken(HTTPTemplateBaseModel):
     """ Return response with a JWT token issued by the auth_service """
     jwt_token: str
+
+
+class HTTPTemplateBaseModelJWTTokenValidation(HTTPTemplateBaseModel):
+    """ Return response with validation test result of a JWT token supposedly issued by the auth_service """
+    is_jwt_valid: bool

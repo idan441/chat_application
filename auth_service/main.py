@@ -1,11 +1,12 @@
 import os
+from typing import Dict
 import uuid
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response, status as HTTP_STATUS_CODES
 from loguru import logger
 
 import http_responses_schemas
-from jwt_utils import JWTHelper
+from jwt_utils import JWTHelper, JWTTokenInvalidException
 
 
 def configure_custom_logger(logs_file_path: str) -> None:
@@ -65,8 +66,12 @@ def get_public_key():
           response_model=http_responses_schemas.HTTPTemplateBaseModelJWTToken)
 def sign_service_jwt():
     """ Signs a JWT token which will be used to authenticate between microservices in this project """
+    service_token_payload: Dict[str, any] = {
+        "service_name": "auth_service",
+    }
+    jwt_token: str = jwt_helper.sign_token(payload=service_token_payload)
     return http_responses_schemas.HTTPTemplateBaseModelJWTToken(
-        jwt_token="",
+        jwt_token=jwt_token,
         text_message="Successfully returned a micro-service JWT token"
     )
 
@@ -76,7 +81,33 @@ def sign_service_jwt():
           response_model=http_responses_schemas.HTTPTemplateBaseModelJWTToken)
 def sign_user_jwt():
     """ Signs a JWT token which will be used by users to authenticate with other microservices in this project """
+    user_token_payload: Dict[str, any] = {
+        "user_id": 1,
+        "email": "aa",
+    }
+    jwt_token: str = jwt_helper.sign_token(payload=user_token_payload)
     return http_responses_schemas.HTTPTemplateBaseModelJWTToken(
-        jwt_token="",
+        jwt_token=jwt_token,
         text_message="Successfully returned a user JWT token"
     )
+
+
+@app.post("/validate_jwt_token",
+          status_code=HTTP_STATUS_CODES.HTTP_201_CREATED,
+          response_model=http_responses_schemas.HTTPTemplateBaseModelJWTTokenValidation)
+def validate_jwt_token(response: Response):
+    """ Signs a JWT token which will be used by users to authenticate with other microservices in this project """
+    jwt_token: str = "test"
+    try:
+        jwt_helper.validate_token(jwt_token=jwt_token)
+        return http_responses_schemas.HTTPTemplateBaseModelJWTTokenValidation(
+            is_jwt_valid=True,
+            text_message="JWT token is valid"
+        )
+    except JWTTokenInvalidException:
+        response.status_code = HTTP_STATUS_CODES.HTTP_401_UNAUTHORIZED
+        return http_responses_schemas.HTTPTemplateBaseModelJWTTokenValidation(
+            is_jwt_valid=False,
+            text_message="JWT token is invalid"
+        )
+

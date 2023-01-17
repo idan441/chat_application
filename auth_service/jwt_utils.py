@@ -38,31 +38,33 @@ class JWTHelper:
         :param expiration_time_in_hours:
         :param key_algorithm:
         """
-        self.private_key: str = private_key
-        self.public_key: str = public_key
-        self.expiration_time_in_hours: int = expiration_time_in_hours
-        self.key_algorithm: str = key_algorithm
-        print(self.private_key)
-        print(self.public_key)
+        self._private_key: str = private_key
+        self._public_key: str = public_key
+        self._expiration_time_in_hours: int = expiration_time_in_hours
+        self._key_algorithm: str = key_algorithm
 
     def get_public_key(self) -> str:
         """ Returns the public key used to sign JWT tokens
 
         :return: str
         """
-        return self.public_key
+        return self._public_key
 
     def get_key_algorithm(self) -> str:
         """ Returns the key algorithm used to sign JWT tokens
 
         :return: str
         """
-        return self.key_algorithm
+        return self._key_algorithm
 
     def sign_token(self, payload: Dict[str, any]) -> str:
-        """ Signs a JWT token """
-        payload["exp"] = datetime.now(tz=timezone.utc) + timedelta(hours=self.expiration_time_in_hours)
-        jwt_token: str = jwt.encode(payload=payload, key=self.private_key, algorithm=self.key_algorithm)
+        """ Signs a JWT token
+
+        :param payload:
+        :return: JWT token (str)
+        """
+        payload["exp"] = datetime.now(tz=timezone.utc) + timedelta(hours=self._expiration_time_in_hours)
+        jwt_token: str = jwt.encode(payload=payload, key=self._private_key, algorithm=self._key_algorithm)
         return jwt_token
 
     def validate_token(self, jwt_token: str) -> Dict:
@@ -72,9 +74,11 @@ class JWTHelper:
         :return: Dict, the JWT token payload
         """
         try:
-            decoded_payload: Dict = jwt.decode(jwt=jwt_token, key=self.public_key, algorithms=[self.key_algorithm])
+            decoded_payload: Dict = jwt.decode(jwt=jwt_token, key=self._public_key, algorithms=[self._key_algorithm])
             return decoded_payload
         except jwt.exceptions.DecodeError:
             logger.error("A JWT token with a bad signature! Someone tried to over-write the signature! ")
+            raise JWTTokenInvalidException("Token is not signed correctly")
         except jwt.exceptions.ExpiredSignatureError:
             logger.info("A JWT which is expired was given, please refresh it")
+            raise JWTTokenInvalidException("Token has expired")
