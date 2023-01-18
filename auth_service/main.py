@@ -1,12 +1,13 @@
 import os
-from typing import Dict
+from typing import Union
 import uuid
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response, status as HTTP_STATUS_CODES
 from loguru import logger
 
 import http_responses_schemas
-from jwt_utils import JWTHelper, JWTTokenInvalidException
+import request_input_schemas
+from jwt_utils import JWTIssuer, MicroserviceAuthenticationTokenInvalidException
 
 
 def configure_custom_logger(logs_file_path: str) -> None:
@@ -25,7 +26,7 @@ def configure_custom_logger(logs_file_path: str) -> None:
 
 
 load_dotenv()
-jwt_helper = JWTHelper(private_key=os.environ["JWT_PRIVATE_KEY"],
+jwt_issuer = JWTIssuer(private_key=os.environ["JWT_PRIVATE_KEY"],
                        public_key=os.environ["JWT_PUBLIC_KEY"],
                        key_algorithm=os.environ["KEY_ALGORITHM"],
                        expiration_time_in_hours=int(os.environ["JWT_VALIDITY_IN_HOURS"]))
@@ -50,10 +51,10 @@ async def http_middleware(request: Request, call_next):
 def get_public_key():
     """ Returns the public key used for authenticating the JWT tokens created by this service
 
-    This route can be public, as the JWT tokens can only be signed with the private key which is know to this service
+    This route can be public, as the JWT tokens can only be signed with the private key which is known to this service
     only. By the least, this route should be available for other backend services who want to authenticate JWT tokens.
     """
-    public_key, key_format_algorithm = jwt_helper.get_public_key(), jwt_helper.get_key_algorithm()
+    public_key, key_format_algorithm = jwt_issuer.get_public_key(), jwt_issuer.get_key_algorithm()
     return http_responses_schemas.HTTPTemplateBaseModelPublicKey(
         public_key=public_key,
         key_format_algorithm=key_format_algorithm,
@@ -61,31 +62,36 @@ def get_public_key():
     )
 
 
-@app.post("/sign_service_jwt",
+@app.post("/issue_service_jwt",
           status_code=HTTP_STATUS_CODES.HTTP_201_CREATED,
-          response_model=http_responses_schemas.HTTPTemplateBaseModelJWTToken)
-def sign_service_jwt():
+          response_model=Union[http_responses_schemas.HTTPTemplateBaseModelJWTToken,
+                               http_responses_schemas.HTTPTemplateBaseModelJWTTokenIssueFailedValidation])
+def sign_service_jwt(service_auth_details: request_input_schemas.HTTPRequestIssueServiceJWTModel,
+                     response: Response):
     """ Signs a JWT token which will be used to authenticate between microservices in this project """
-    service_token_payload: Dict[str, any] = {
-        "service_name": "auth_service",
-    }
-    jwt_token: str = jwt_helper.sign_token(payload=service_token_payload)
-    return http_responses_schemas.HTTPTemplateBaseModelJWTToken(
-        jwt_token=jwt_token,
-        text_message="Successfully returned a micro-service JWT token"
-    )
+    try:
+        jwt_token: str = jwt_issuer.issue_micro_service_jwt(service_auth_details=service_auth_details)
+        return http_responses_schemas.HTTPTemplateBaseModelJWTToken(
+            jwt_token=jwt_token,
+            text_message="Successfully returned a micro-service JWT token"
+        )
+    except MicroserviceAuthenticationTokenInvalidException:
+        response.status_code = HTTP_STATUS_CODES.HTTP_400_BAD_REQUEST
+        return http_responses_schemas.HTTPTemplateBaseModelJWTTokenIssueFailedValidation(
+            given_authentication_details=service_auth_details,
+            is_success=False,
+            text_message="Wrong token given, no micro-service JWT token issued"
+        )
 
 
 @app.post("/sign_user_jwt",
           status_code=HTTP_STATUS_CODES.HTTP_201_CREATED,
           response_model=http_responses_schemas.HTTPTemplateBaseModelJWTToken)
-def sign_user_jwt():
-    """ Signs a JWT token which will be used by users to authenticate with other microservices in this project """
-    user_token_payload: Dict[str, any] = {
-        "user_id": 1,
-        "email": "aa",
-    }
-    jwt_token: str = jwt_helper.sign_token(payload=user_token_payload)
+def sign_user_jwt(user_details: request_input_schemas.HTTPRequestIssueUserJWTModel):
+    """ Signs a JWT token which will be used by users to authenticate with other microservices in this project
+
+    This API route assumes the request is sent by a microservice which authenticated the user. """
+    jwt_token: str = jwt_issuer.issue_user_jwt(user_details=user_details)
     return http_responses_schemas.HTTPTemplateBaseModelJWTToken(
         jwt_token=jwt_token,
         text_message="Successfully returned a user JWT token"
@@ -98,13 +104,12 @@ def sign_user_jwt():
 def validate_jwt_token(response: Response):
     """ Signs a JWT token which will be used by users to authenticate with other microservices in this project """
     jwt_token: str = "test"
-    try:
-        jwt_helper.validate_token(jwt_token=jwt_token)
+    if jwt_issuer.is_token_valid(jwt_token=jwt_token):
         return http_responses_schemas.HTTPTemplateBaseModelJWTTokenValidation(
             is_jwt_valid=True,
             text_message="JWT token is valid"
         )
-    except JWTTokenInvalidException:
+    else:
         response.status_code = HTTP_STATUS_CODES.HTTP_401_UNAUTHORIZED
         return http_responses_schemas.HTTPTemplateBaseModelJWTTokenValidation(
             is_jwt_valid=False,

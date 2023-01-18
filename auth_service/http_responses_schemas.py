@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from request_input_schemas import HTTPRequestIssueServiceJWTModel
 
 
 """
@@ -35,3 +36,9 @@ class HTTPTemplateBaseModelJWTToken(HTTPTemplateBaseModel):
 class HTTPTemplateBaseModelJWTTokenValidation(HTTPTemplateBaseModel):
     """ Return response with validation test result of a JWT token supposedly issued by the auth_service """
     is_jwt_valid: bool
+
+
+class HTTPTemplateBaseModelJWTTokenIssueFailedValidation(HTTPTemplateBaseModel):
+    """ Return response when a microservice JWT token request is rejected because of a wrong token given to
+    auth_service """
+    given_authentication_details: HTTPRequestIssueServiceJWTModel
