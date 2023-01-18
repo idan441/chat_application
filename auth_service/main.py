@@ -5,9 +5,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response, status as HTTP_STATUS_CODES
 from loguru import logger
 
-import http_responses_schemas
-import request_input_schemas
-from jwt_utils import JWTIssuer, MicroserviceAuthenticationTokenInvalidException
+from pydantic_schemas import http_responses_schemas, request_input_schemas
+from utils.jwt_utils import JWTIssuer, MicroserviceAuthenticationTokenInvalidException
 
 
 def configure_custom_logger(logs_file_path: str) -> None:

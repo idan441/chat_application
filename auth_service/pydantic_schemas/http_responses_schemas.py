@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from request_input_schemas import HTTPRequestIssueServiceJWTModel
+from pydantic_schemas.request_input_schemas import HTTPRequestIssueServiceJWTModel
 
 
 """

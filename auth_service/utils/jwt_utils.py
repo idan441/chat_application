@@ -3,7 +3,7 @@ from typing import Dict
 import jwt
 from loguru import logger
 
-import request_input_schemas
+from pydantic_schemas import request_input_schemas
 
 """
 Includes a class for managing JWT tokens generation and authentication
