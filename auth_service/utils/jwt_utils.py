@@ -5,7 +5,7 @@ from loguru import logger
 
 
 """
-Includes a class for managing JWT tokens generation and authentication
+JWTHelper - a class for managing JWT tokens generation and authentication
 """
 
 

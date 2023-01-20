@@ -1,12 +1,19 @@
 import os
-from typing import Union
+from typing import Dict, Union
 import uuid
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response, status as HTTP_STATUS_CODES
 from loguru import logger
 
 from pydantic_schemas import http_responses_schemas, request_input_schemas
-from utils.jwt_issuer import JWTIssuer, MicroserviceAuthenticationTokenInvalidException
+from utils.jwt_issuer import JWTIssuer, MicroserviceAuthenticationTokenInvalidException, JWTInvalidAuthException
+from constants import JWTTypes
+
+
+"""
+Authentication service (auth service)
+Used to issue and manage JWT token for all microservices and users who authenticate the project 
+"""
 
 
 def configure_custom_logger(logs_file_path: str) -> None:
