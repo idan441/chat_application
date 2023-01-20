@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request, Response, status as HTTP_STATUS_CODES
 from loguru import logger
 
 from pydantic_schemas import http_responses_schemas, request_input_schemas
-from utils.jwt_utils import JWTIssuer, MicroserviceAuthenticationTokenInvalidException
+from utils.jwt_issuer import JWTIssuer, MicroserviceAuthenticationTokenInvalidException
 
 
 def configure_custom_logger(logs_file_path: str) -> None:
