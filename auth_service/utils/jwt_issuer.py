@@ -25,8 +25,6 @@ class FailedParsingJWTToken(Exception):
     pass
 
 
-
-
 class JWTTokenMicroService:
     """ Represent a microservice JWT token values. This should be created after validating the JWT token. """
 

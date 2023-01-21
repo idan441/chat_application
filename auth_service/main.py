@@ -1,14 +1,13 @@
-import os
-from typing import Dict, Union, List
+from typing import Union
 import uuid
-from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response, Header, Depends, HTTPException, status as HTTP_STATUS_CODES
 from loguru import logger
 
 from pydantic_schemas import http_responses_schemas, request_input_schemas
-from utils.jwt_issuer import JWTIssuer, MicroserviceAuthenticationTokenInvalidException, JWTInvalidAuthException
-from fast_api_extensions.auth_http_request import AuthHTTPRequest, AuthorizationHeaderJWTTokenNotPermitized, AuthorizationHeaderInvalidHeaderFormat, AuthorizationHeaderInvalidToken
-from constants import JWTTypes
+from utils.jwt_issuer import MicroserviceAuthenticationTokenInvalidException
+from init_objects import jwt_issuer
+from fast_api_extensions.fast_api_dependencies import require_microservice_jwt_token, \
+    require_chat_be_microservice_jwt_token
 
 
 """
@@ -17,64 +16,7 @@ Used to issue and manage JWT token for all microservices and users who authentic
 """
 
 
-def configure_custom_logger(logs_file_path: str) -> None:
-    """ Will configure the logging module to use a JSON customized logging
-
-    :param logs_file_path:
-    :return: None
-    """
-    logger.remove(0)
-    logger.add(logs_file_path,
-               format="{time} | {level} | {extra[request_uuid]} | Message : {message}",
-               colorize=False,
-               serialize=True)
-
-    return None
-
-
-load_dotenv()
-configure_custom_logger(logs_file_path=os.environ["LOGS_FILE_PATH"])
-
-jwt_issuer = JWTIssuer(private_key=os.environ["JWT_PRIVATE_KEY"],
-                       public_key=os.environ["JWT_PUBLIC_KEY"],
-                       key_algorithm=os.environ["KEY_ALGORITHM"],
-                       expiration_time_in_hours=int(os.environ["JWT_VALIDITY_IN_HOURS"]))
-auth_http_request = AuthHTTPRequest(jwt_issuer=jwt_issuer)
 app = FastAPI()
-
-
-def require_microservice_jwt_token(authorization_bearer_header: str = Header("Authorization")):
-    try:
-        microservice_token = auth_http_request.verify_micro_service_jwt_token(
-            authorization_bearer_header=authorization_bearer_header
-        )
-        return microservice_token
-    except AuthorizationHeaderJWTTokenNotPermitized:
-        raise HTTPException(status_code=HTTP_STATUS_CODES.HTTP_401_UNAUTHORIZED,
-                            detail="Not permitted to use this API route")
-    except AuthorizationHeaderInvalidHeaderFormat:
-        raise HTTPException(status_code=HTTP_STATUS_CODES.HTTP_401_UNAUTHORIZED,
-                            detail="Authorization header content is invalid")
-    except AuthorizationHeaderInvalidToken:
-        raise HTTPException(status_code=HTTP_STATUS_CODES.HTTP_401_UNAUTHORIZED,
-                            detail="JWT given is invalid")
-
-
-def require_registered_user_jwt_token(authorization_bearer_header: str = Header("Authorization")):
-    try:
-        microservice_token = auth_http_request.verify_registered_user_jwt_token(
-            authorization_bearer_header=authorization_bearer_header
-        )
-        return microservice_token
-    except AuthorizationHeaderJWTTokenNotPermitized:
-        raise HTTPException(status_code=HTTP_STATUS_CODES.HTTP_401_UNAUTHORIZED,
-                            detail="Not permitted to use this API route")
-    except AuthorizationHeaderInvalidHeaderFormat:
-        raise HTTPException(status_code=HTTP_STATUS_CODES.HTTP_401_UNAUTHORIZED,
-                            detail="Authorization header content is invalid")
-    except AuthorizationHeaderInvalidToken:
-        raise HTTPException(status_code=HTTP_STATUS_CODES.HTTP_401_UNAUTHORIZED,
-                            detail="JWT given is invalid")
 
 
 @app.middleware("http")
@@ -151,10 +93,13 @@ def sign_service_jwt(service_auth_details: request_input_schemas.HTTPRequestIssu
           status_code=HTTP_STATUS_CODES.HTTP_201_CREATED,
           response_model=http_responses_schemas.HTTPTemplateBaseModelJWTToken)
 def sign_user_jwt(user_details: request_input_schemas.HTTPRequestIssueUserJWTModel,
-                  microservice_token: str = Depends(require_microservice_jwt_token)):
+                  microservice_token: str = Depends(require_chat_be_microservice_jwt_token)):
     """ Signs a JWT token which will be used by users to authenticate with other microservices in this project
 
-    This API route assumes the request is sent by a microservice which authenticated the user. """
+    * This API route assumes the request is sent by a microservice which already authenticated the user.
+    * This API route can be used only with a JWT token of CHAT BE microservice, which is the only microservice in the
+      project which should authenticate users.
+    """
     jwt_token: str = jwt_issuer.issue_user_jwt(user_details=user_details)
     return http_responses_schemas.HTTPTemplateBaseModelJWTToken(
         jwt_token=jwt_token,

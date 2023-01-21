@@ -1,8 +1,9 @@
-from typing import List
+from typing import List, Optional
 
 from utils.jwt_issuer import JWTIssuer, FailedParsingJWTToken, JWTInvalidAuthException
 from utils.jwt_issuer import JWTTokenRegisteredUser, JWTTokenMicroService
 from constants import JWTTypes
+
 
 """
 Includes AuthHTTPRequest class which handles verifying authentication of using sending requests to auth service using
@@ -27,7 +28,7 @@ class AuthorizationHeaderInvalidToken(Exception):
     """
 
 
-class AuthorizationHeaderJWTTokenNotPermitized(Exception):
+class AuthorizationHeaderJWTTokenNotPermitted(Exception):
     """ Raises when a given JWT is not permitized to use the FastAPI route. This raises by AuthHTTPRequest after
     successfully reading the authorization header and verifying the JWT authenticity. This error is related to
     permission not satisfied for the microservice or registered using sending the JWT token."""
@@ -72,15 +73,18 @@ class AuthHTTPRequest:
 
         return token
 
-    def verify_micro_service_jwt_token(self, authorization_bearer_header: str) -> JWTTokenMicroService:
+    def verify_micro_service_jwt_token(self, authorization_bearer_header: str, micro_service_name: Optional[str]) \
+            -> JWTTokenMicroService:
         """ Verifies if a microservice type JWT token is attached to the HTTP request sent to FastAPI.
 
         This will check if the JWT token is recognized as a microservice JWT token. ( An internal decision in this
         project - all JWT tokens will include a "token_type" field with a value - "microservice" or "registered_user" )
 
         :param authorization_bearer_header:
+        :param micro_service_name: Optional - microservice name, this will verify the JWT token is sent by a specific
+                                   microservice name. ( Will check if field "service_name" has service name value )
         :raises AuthorizationHeaderInvalidToken: In case the JWT token is invalid
-        :raises AuthorizationHeaderJWTTokenNotPermitized: In case the JWT token is not a microservice JWT token
+        :raises AuthorizationHeaderJWTTokenNotPermitted: In case the JWT token is not a microservice JWT token
         :return:
         """
         jwt_token: str = self.parse_auth_bearer_header(authorization_bearer_header=authorization_bearer_header)
@@ -90,10 +94,13 @@ class AuthHTTPRequest:
         except (FailedParsingJWTToken, JWTInvalidAuthException):
             raise AuthorizationHeaderInvalidToken("Failed reading the JWT token!")
 
-        if token_type == JWTTypes.MICROSERVICE_KEY_VALUE:
-            return jwt_token_payload_object
+        if token_type != JWTTypes.MICROSERVICE_KEY_VALUE:
+            raise AuthorizationHeaderJWTTokenNotPermitted()
+        elif micro_service_name is not None:
+            if not jwt_token_payload_object.service_name == micro_service_name:
+                raise AuthorizationHeaderJWTTokenNotPermitted()
         else:
-            raise AuthorizationHeaderJWTTokenNotPermitized()
+            return jwt_token_payload_object
 
     def verify_registered_user_jwt_token(self, authorization_bearer_header) -> JWTTokenRegisteredUser:
         """ Verifies if a registered_user type JWT token is attached to the HTTP request sent to FastAPI.
@@ -103,7 +110,7 @@ class AuthHTTPRequest:
 
         :param authorization_bearer_header:
         :raises AuthorizationHeaderInvalidToken: In case the JWT token is invalid
-        :raises AuthorizationHeaderJWTTokenNotPermitized: In case the JWT token is not a registered user JWT token
+        :raises AuthorizationHeaderJWTTokenNotPermitted: In case the JWT token is not a registered user JWT token
         :return:
         """
         jwt_token: str = self.parse_auth_bearer_header(authorization_bearer_header=authorization_bearer_header)
@@ -112,7 +119,7 @@ class AuthHTTPRequest:
         except (FailedParsingJWTToken, JWTInvalidAuthException):
             raise AuthorizationHeaderInvalidToken("Failed reading the JWT token!")
 
-        if token_type == JWTTypes.REGISTERED_USER_KEY_VALUE:
-            return jwt_token_payload_object
+        if token_type != JWTTypes.REGISTERED_USER_KEY_VALUE:
+            raise AuthorizationHeaderJWTTokenNotPermitted()
         else:
-            raise AuthorizationHeaderJWTTokenNotPermitized()
+            return jwt_token_payload_object
