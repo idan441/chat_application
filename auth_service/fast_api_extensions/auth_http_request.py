@@ -1,23 +1,33 @@
 from typing import List
 
-from utils.jwt_issuer import JWTIssuer
+from utils.jwt_issuer import JWTIssuer, FailedParsingJWTToken, JWTInvalidAuthException
 from utils.jwt_issuer import JWTTokenRegisteredUser, JWTTokenMicroService
 from constants import JWTTypes
 
 """
-Includes AuthHTTPRequest classes which handles verifying authentication of using sending requests to auth service using
+Includes AuthHTTPRequest class which handles verifying authentication of using sending requests to auth service using
 FastAPI framework. 
 """
 
 
-class AuthorizationTokenInvalid(Exception):
+class AuthorizationHeaderInvalidHeaderFormat(Exception):
     """ Raises when AuthHTTPRequest fails to parse an "Authorization Bearer" header because its value is wrong and not
     according to standards.
     Authorization header structure for bearer tokens (=JWT tokens) is - "Authorization: Bearer <JWT token>"
     Example: missing the word "Bearer" or having an empty JWT token attached. """
 
 
-class JWTTokenNotPermitized(Exception):
+class AuthorizationHeaderInvalidToken(Exception):
+    """ Raises when AuthHTTPRequest fails to read the JWT token attached to it. This can happen from two reasons:
+    1) JWT token is signed with a wrong private key. ( Note - in such case make sure PEM key-pairs weren't stolen! )
+    2) JWT token has expired. ( In such case the registered user or microservice need to issue a new JWT token )
+
+    If this exception raises - that means the authorization bearer header is formatted correct and that the issue is
+    related only to JWT token authenticity.
+    """
+
+
+class AuthorizationHeaderJWTTokenNotPermitized(Exception):
     """ Raises when a given JWT is not permitized to use the FastAPI route. This raises by AuthHTTPRequest after
     successfully reading the authorization header and verifying the JWT authenticity. This error is related to
     permission not satisfied for the microservice or registered using sending the JWT token."""
@@ -42,27 +52,25 @@ class AuthHTTPRequest:
         """ Parses value of Authorization bearer header assuring it is valid according to standard - "Bearer <token>"
 
         :param authorization_bearer_header: str, should be "Bearer <JWT-token>"
-        :raises AuthorizationTokenInvalid: If the authorization header is invalid
+        :raises AuthorizationHeaderInvalidHeaderFormat: If the authorization header is invalid
         :return: the JWT token itself
         """
-        print("AUTH:", authorization_bearer_header)
-
         try:
             header_values: List[str] = str(authorization_bearer_header).split(" ")
             auth_type: str = header_values[0]
             token: str = header_values[1]
         except IndexError:
-            raise AuthorizationTokenInvalid("Authorization token is too short and missing parts")
+            raise AuthorizationHeaderInvalidHeaderFormat("Authorization token is too short and missing parts")
 
         if len(header_values) != 2:
-            raise AuthorizationTokenInvalid("Authorization token has too many parts")
+            raise AuthorizationHeaderInvalidHeaderFormat("Authorization token has too many parts")
         if auth_type != "Bearer":
-            raise AuthorizationTokenInvalid("Authorization token missing 'Bearer' in its beginning")
+            raise AuthorizationHeaderInvalidHeaderFormat("Authorization token missing 'Bearer' in its beginning")
         if len(token) < 1:
-            raise AuthorizationTokenInvalid("Token attached to authorization token is null and has less than 1 char")
+            raise AuthorizationHeaderInvalidHeaderFormat("Token attached to authorization token is empty "
+                                                         "and has less than 1 char")
 
         return token
-
 
     def verify_micro_service_jwt_token(self, authorization_bearer_header: str) -> JWTTokenMicroService:
         """ Verifies if a microservice type JWT token is attached to the HTTP request sent to FastAPI.
@@ -71,16 +79,21 @@ class AuthHTTPRequest:
         project - all JWT tokens will include a "token_type" field with a value - "microservice" or "registered_user" )
 
         :param authorization_bearer_header:
-        :raises JWTTokenNotPermitized: In case the JWT token is not a microservice JWT token
+        :raises AuthorizationHeaderInvalidToken: In case the JWT token is invalid
+        :raises AuthorizationHeaderJWTTokenNotPermitized: In case the JWT token is not a microservice JWT token
         :return:
         """
         jwt_token: str = self.parse_auth_bearer_header(authorization_bearer_header=authorization_bearer_header)
-        token_type, jwt_token_payload_object = self.jwt_issuer.read_jwt_token(jwt_token=jwt_token)
+
+        try:
+            token_type, jwt_token_payload_object = self.jwt_issuer.read_jwt_token(jwt_token=jwt_token)
+        except (FailedParsingJWTToken, JWTInvalidAuthException):
+            raise AuthorizationHeaderInvalidToken("Failed reading the JWT token!")
 
         if token_type == JWTTypes.MICROSERVICE_KEY_VALUE:
             return jwt_token_payload_object
         else:
-            raise JWTTokenNotPermitized()
+            raise AuthorizationHeaderJWTTokenNotPermitized()
 
     def verify_registered_user_jwt_token(self, authorization_bearer_header) -> JWTTokenRegisteredUser:
         """ Verifies if a registered_user type JWT token is attached to the HTTP request sent to FastAPI.
@@ -89,12 +102,17 @@ class AuthHTTPRequest:
         project - all JWT tokens will include a "token_type" field with a value - "microservice" or "registered_user" )
 
         :param authorization_bearer_header:
-        :raises JWTTokenNotPermitized: In case the JWT token is not a registered user JWT token
+        :raises AuthorizationHeaderInvalidToken: In case the JWT token is invalid
+        :raises AuthorizationHeaderJWTTokenNotPermitized: In case the JWT token is not a registered user JWT token
         :return:
         """
         jwt_token: str = self.parse_auth_bearer_header(authorization_bearer_header=authorization_bearer_header)
-        token_type, jwt_token_payload_object = self.jwt_issuer.read_jwt_token(jwt_token=jwt_token)
+        try:
+            token_type, jwt_token_payload_object = self.jwt_issuer.read_jwt_token(jwt_token=jwt_token)
+        except (FailedParsingJWTToken, JWTInvalidAuthException):
+            raise AuthorizationHeaderInvalidToken("Failed reading the JWT token!")
+
         if token_type == JWTTypes.REGISTERED_USER_KEY_VALUE:
             return jwt_token_payload_object
         else:
-            raise JWTTokenNotPermitized()
+            raise AuthorizationHeaderJWTTokenNotPermitized()

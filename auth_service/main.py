@@ -7,7 +7,7 @@ from loguru import logger
 
 from pydantic_schemas import http_responses_schemas, request_input_schemas
 from utils.jwt_issuer import JWTIssuer, MicroserviceAuthenticationTokenInvalidException, JWTInvalidAuthException
-from fast_api_extensions.auth_http_request import AuthHTTPRequest, JWTTokenNotPermitized, AuthorizationTokenInvalid
+from fast_api_extensions.auth_http_request import AuthHTTPRequest, AuthorizationHeaderJWTTokenNotPermitized, AuthorizationHeaderInvalidHeaderFormat, AuthorizationHeaderInvalidToken
 from constants import JWTTypes
 
 
@@ -49,12 +49,15 @@ def require_microservice_jwt_token(authorization_bearer_header: str = Header("Au
             authorization_bearer_header=authorization_bearer_header
         )
         return microservice_token
-    except JWTTokenNotPermitized:
+    except AuthorizationHeaderJWTTokenNotPermitized:
         raise HTTPException(status_code=HTTP_STATUS_CODES.HTTP_401_UNAUTHORIZED,
                             detail="Not permitted to use this API route")
-    except AuthorizationTokenInvalid:
+    except AuthorizationHeaderInvalidHeaderFormat:
         raise HTTPException(status_code=HTTP_STATUS_CODES.HTTP_401_UNAUTHORIZED,
-                            detail="header content is invalid")
+                            detail="Authorization header content is invalid")
+    except AuthorizationHeaderInvalidToken:
+        raise HTTPException(status_code=HTTP_STATUS_CODES.HTTP_401_UNAUTHORIZED,
+                            detail="JWT given is invalid")
 
 
 def require_registered_user_jwt_token(authorization_bearer_header: str = Header("Authorization")):
@@ -63,12 +66,15 @@ def require_registered_user_jwt_token(authorization_bearer_header: str = Header(
             authorization_bearer_header=authorization_bearer_header
         )
         return microservice_token
-    except JWTTokenNotPermitized:
+    except AuthorizationHeaderJWTTokenNotPermitized:
         raise HTTPException(status_code=HTTP_STATUS_CODES.HTTP_401_UNAUTHORIZED,
                             detail="Not permitted to use this API route")
-    except AuthorizationTokenInvalid:
+    except AuthorizationHeaderInvalidHeaderFormat:
         raise HTTPException(status_code=HTTP_STATUS_CODES.HTTP_401_UNAUTHORIZED,
-                            detail="header content is invalid")
+                            detail="Authorization header content is invalid")
+    except AuthorizationHeaderInvalidToken:
+        raise HTTPException(status_code=HTTP_STATUS_CODES.HTTP_401_UNAUTHORIZED,
+                            detail="JWT given is invalid")
 
 
 @app.middleware("http")
