@@ -12,10 +12,10 @@ in every HTTP request sent to it.
 """
 
 
-def require_microservice_jwt_token(authorization_bearer_header: str = Header("Authorization")):
+def require_microservice_jwt_token(Authorization: str = Header()):
     try:
         microservice_token = auth_http_request.verify_micro_service_jwt_token(
-            authorization_bearer_header=authorization_bearer_header
+            authorization_bearer_header=Authorization
         )
         return microservice_token
     except AuthorizationHeaderJWTTokenNotPermitted:
@@ -29,10 +29,10 @@ def require_microservice_jwt_token(authorization_bearer_header: str = Header("Au
                             detail="JWT given is invalid")
 
 
-def require_chat_be_microservice_jwt_token(authorization_bearer_header: str = Header("Authorization")):
+def require_chat_be_microservice_jwt_token(Authorization: str = Header()):
     try:
         microservice_token = auth_http_request.verify_micro_service_jwt_token(
-            authorization_bearer_header=authorization_bearer_header,
+            authorization_bearer_header=Authorization,
             micro_service_name=MicroServicesNames.CHAT_BE,
         )
         return microservice_token
@@ -47,10 +47,10 @@ def require_chat_be_microservice_jwt_token(authorization_bearer_header: str = He
                             detail="JWT given is invalid")
 
 
-def require_registered_user_jwt_token(authorization_bearer_header: str = Header("Authorization")):
+def require_registered_user_jwt_token(Authorization: str = Header()):
     try:
         microservice_token = auth_http_request.verify_registered_user_jwt_token(
-            authorization_bearer_header=authorization_bearer_header
+            authorization_bearer_header=Authorization
         )
         return microservice_token
     except AuthorizationHeaderJWTTokenNotPermitted:
