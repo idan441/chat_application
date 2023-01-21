@@ -177,9 +177,17 @@ async def chat_be_authenticate():
 
 
 @app.get("/chat_be/user/{user_id}", response_model=http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails)
-def chat_be_read_user(user_id: int, db: Session = Depends(get_db)):
-    """ Returns a specific user details by its user ID """
-    db_user = users_table_crud_commands.get_user_by_id(db, user_id=user_id)
-    if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    return db_user
+def chat_be_read_user(user_id: int, response: Response, db: Session = Depends(get_db)):
+    """ Returns user details by its user ID """
+    try:
+        user: models.User = users_table_crud_commands.get_user_by_id(db, user_id=user_id)
+        return http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails(
+            content=user,
+            text_message="Successfully returned user details"
+        )
+    except users_table_crud_commands.UserNotFoundException:
+        response.status_code = HTTP_STATUS_CODES.HTTP_404_NOT_FOUND
+        return http_responses_shcemas.HTTPTemplateBaseModelError(
+            text_message="User does not exist",
+            is_success=False,
+        )
