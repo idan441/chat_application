@@ -73,8 +73,8 @@ class AuthHTTPRequest:
 
         return token
 
-    def verify_micro_service_jwt_token(self, authorization_bearer_header: str, micro_service_name: Optional[str]) \
-            -> JWTTokenMicroService:
+    def verify_micro_service_jwt_token(self, authorization_bearer_header: str,
+                                       micro_service_name: Optional[str] = None) -> JWTTokenMicroService:
         """ Verifies if a microservice type JWT token is attached to the HTTP request sent to FastAPI.
 
         This will check if the JWT token is recognized as a microservice JWT token. ( An internal decision in this
