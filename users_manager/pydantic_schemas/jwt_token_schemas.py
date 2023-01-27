@@ -15,3 +15,11 @@ class JWTTokenMicroService(BaseModel):
     """ Represent a microservice JWT token values. This should be created after validating the JWT token. """
     token_type: str
     service_name: str
+
+
+class JWTTokenRegisteredUser(BaseModel):
+    """ Represent a registered user JWT token values. This should be created after validating the JWT token. """
+    token_type: str
+    user_id: str
+    email: str
+    is_active: bool

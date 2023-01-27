@@ -1,11 +1,12 @@
 from time import sleep
-from typing import Dict, Optional, Literal
+from typing import Dict, Optional, Literal, Tuple, Union
 from datetime import datetime, timedelta
 import requests
 import jwt
 from loguru import logger
 
-from pydantic_schemas.jwt_token_schemas import JWTTokenMicroService
+from pydantic_schemas.jwt_token_schemas import JWTTokenMicroService, JWTTokenRegisteredUser
+from constants import JWTTypes
 
 
 """
@@ -32,6 +33,19 @@ class FailedInitializingAuthServiceJWTValidatorClassException(Exception):
 
     Initializing is critical for application functionality and in most cases if this exception raises - application will
     terminate """
+    pass
+
+
+class JWTInvalidAuthException(Exception):
+    """ Raises when a given JWT token is invalid.
+     This exception is used when a microservice tries to authenticate with auth service and uses an invalid token.
+     ( And not when a microservice tries to issue a JWT token ) """
+    pass
+
+
+class FailedParsingJWTToken(Exception):
+    """ Raises when fails to read a JWT token. This should be used after verifying the JWT token is authenticated so it
+    will raise if the JWT token is missing fields. ( "email", "is_active" etc... ) """
     pass
 
 
@@ -198,7 +212,7 @@ class AuthServiceJWTValidator:
 
         return None
 
-    def validate_token(self, jwt_token: str) -> Dict:
+    def _validate_token(self, jwt_token: str) -> Dict:
         """ Validates a token is authenticated and valid
 
         Checks two factors - 1) JWT signature is correct, 2) JWT expiration date is valid
@@ -217,3 +231,70 @@ class AuthServiceJWTValidator:
             raise JWTTokenInvalidException("Token has expired")
 
         return decoded_payload
+
+    @staticmethod
+    def _parse_microservice_token(jwt_token_payload: Dict[str, any]) -> JWTTokenMicroService:
+        """
+
+        :param jwt_token_payload:
+        :raises FailedParsingJWTToken: In case parsing JWT failed ( example - if some fields are missing )
+        :return: JWTTokenMicroService which contains JWT details
+        """
+        try:
+            token_type: str = jwt_token_payload["token_type"]
+            service_name: str = jwt_token_payload["service_name"]
+
+            microservice_token = JWTTokenMicroService(token_type=token_type,
+                                                      service_name=service_name)
+            return microservice_token
+        except KeyError as exception:
+            logger.error(f"Failed parsing microservice JWT token - {jwt_token_payload}, exception: {exception}")
+            raise FailedParsingJWTToken()
+
+    @staticmethod
+    def _parse_registered_user_token(jwt_token_payload: Dict[str, any]) -> JWTTokenRegisteredUser:
+        """
+
+        :param jwt_token_payload:
+        :raises FailedParsingJWTToken: In case parsing JWT failed ( example - if some fields are missing )
+        :return: JWTTokenRegisteredUser which contains JWT details
+        """
+        try:
+            token_type: str = jwt_token_payload["token_type"]
+            user_id: str = jwt_token_payload["user_id"]
+            email: str = jwt_token_payload["email"]
+            is_active: bool = jwt_token_payload["is_active"]
+
+            user_token = JWTTokenRegisteredUser(token_type=token_type,
+                                                user_id=user_id,
+                                                email=email,
+                                                is_active=is_active)
+            return user_token
+        except KeyError as exception:
+            logger.error(f"Failed parsing registered user JWT token - {jwt_token_payload}, exception: {exception}")
+            raise FailedParsingJWTToken()
+
+    def read_jwt_token(self, jwt_token: str) -> Tuple[str, Union[JWTTokenMicroService, JWTTokenRegisteredUser]]:
+        """ Read a JWT token issued by the auth service and returns its payload as an object representing it. ( Custom
+        class which assures JWT token contains all fields needed )
+
+        :param jwt_token:
+        :raises JWTTokenInvalidException: In case token is not valid (bad signature or token expired)
+        :raises FailedParsingJWTToken: In case token is valid, but its payload is missing fields ( This is not supposed
+                                       to happen and probably means the private key was stolen to fake the JWT )
+        :return: Tuple - token type (microservice or registered user) and an object representing the token payload
+        """
+        try:
+            token_payload: Dict[str, any] = self._validate_token(jwt_token=jwt_token)
+            if token_payload["token_type"] == JWTTypes.MICROSERVICE_KEY_VALUE:
+                token_details: JWTTokenMicroService = self._parse_microservice_token(jwt_token_payload=token_payload)
+                token_type: str = JWTTypes.MICROSERVICE_KEY_VALUE
+            elif token_payload["token_type"] == JWTTypes.REGISTERED_USER_KEY_VALUE:
+                token_details: JWTTokenRegisteredUser = \
+                    self._parse_registered_user_token(jwt_token_payload=token_payload)
+                token_type: str = JWTTypes.REGISTERED_USER_KEY_VALUE
+            else:
+                raise FailedParsingJWTToken()
+            return token_type, token_details
+        except JWTTokenInvalidException:
+            raise JWTInvalidAuthException()

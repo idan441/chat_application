@@ -20,8 +20,15 @@ class MicroserviceAuthenticationTokenInvalidException(Exception):
 
 
 class FailedParsingJWTToken(Exception):
-    """ Raises when fails to read a JWT token. This should be used after verifying the JWT token is authenticated so it
+    """ Raises when fails to read a JWT token. This should be used after verifying the JWT token is authenticated, so it
     will raise if the JWT token is missing fields. ( "email", "is_active" etc... ) """
+    pass
+
+
+class JWTInvalidAuthException(Exception):
+    """ Raises when a given JWT token is invalid.
+     This exception is used when a microservice tries to authenticate with auth service and uses an invalid token.
+     ( And not when a microservice tries to issue a JWT token ) """
     pass
 
 
@@ -53,13 +60,6 @@ class JWTTokenRegisteredUser:
         self.user_id: str = user_id
         self.email: str = email
         self.is_active: bool = is_active
-
-
-class JWTInvalidAuthException(Exception):
-    """ Raises when a given JWT token is invalid.
-     This exception is used when a microservice tries to authenticate with auth service and uses an invalid token.
-     ( And not when a microservice tries to issue a JWT token ) """
-    pass
 
 
 class JWTIssuer:
@@ -219,8 +219,8 @@ class JWTIssuer:
             raise FailedParsingJWTToken()
 
     def read_jwt_token(self, jwt_token: str) -> Tuple[str, Union[JWTTokenMicroService, JWTTokenRegisteredUser]]:
-        """ Read a JWT token issued by the auth service and returns its payload an object representing it. ( Custom
-        class which assures JWT token contains all fields needed. )
+        """ Read a JWT token issued by the auth service and returns its payload as an object representing it. ( Custom
+        class which assures JWT token contains all fields needed )
 
         :param jwt_token:
         :raises JWTTokenInvalidException: In case token is not valid (bad signature or token expired)
