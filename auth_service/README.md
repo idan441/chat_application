@@ -15,6 +15,11 @@ ssh-keygen -e -m PEM -f jwtRS256.key > jwtRS256.key.pub
 
 keys should be given in a single line string as ENV VARs. Make sure to put ```\n``` where a newline is in the newly created keys
 Using this command will help you - this will replace the newline with ```\n``` . Note that you need to remove the last ```\n``` in the output.
+```bash
+awk -v ORS='\\n' '1'  jwtRS256.key > private.key
+awk -v ORS='\\n' '1'  jwtRS256.key.pub > public.key
+``` 
+
 * Example is with keys in RS256 format - make sure to specify it in the ```KEY_ALGORITHM``` NEV VAR!
 ```bash
 JWT_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\nEXAMPLE_FOR_PRIVATE_KEY\n-----END RSA PRIVATE KEY-----"

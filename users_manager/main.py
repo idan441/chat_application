@@ -10,6 +10,7 @@ from mysql_connector import users_table_crud_commands, models
 from pydantic_schemas import users_schemas, admin_login_schemas, http_responses_shcemas
 from mysql_connector.database import SessionLocal, engine
 from logger.custom_logger import configure_custom_logger
+from fast_api_extensions.fast_api_dependencies import require_chat_be_microservice_jwt_token
 
 
 # Dependency
@@ -165,7 +166,7 @@ async def root():
 
 @app.get("/admin/logout")
 async def root():
-    """ Log out a user by deleting his session cookies """
+    """ Logs out from admin panel by deleting his session cookies """
     return {"message": "Hello World"}
 
 
@@ -176,8 +177,13 @@ async def chat_be_authenticate():
     return {"message": "Hello World"}
 
 
-@app.get("/chat_be/user/{user_id}", response_model=http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails)
-def chat_be_read_user(user_id: int, response: Response, db: Session = Depends(get_db)):
+@app.get("/chat_be/user/{user_id}",
+         status_code=HTTP_STATUS_CODES.HTTP_200_OK,
+         response_model=http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails)
+def chat_be_read_user(user_id: int,
+                      response: Response,
+                      microservice_token: str = Depends(require_chat_be_microservice_jwt_token),
+                      db: Session = Depends(get_db),):
     """ Returns user details by its user ID """
     try:
         user: models.User = users_table_crud_commands.get_user_by_id(db, user_id=user_id)

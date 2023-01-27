@@ -27,11 +27,3 @@ class MicroServicesNames:
      """
     USERS_MANAGER = "user_manager"
     CHAT_BE = "chat_be"
-
-    """ Authentication tokens used by different microservices int eh project in order to authenticate with auth service
-        and issue a JWT token for themselves. """
-    MICROSERVICES_TOKENS_DICT: Dict[str, str] = {
-
-        USERS_MANAGER: "aaa",
-        CHAT_BE: "aaaa",
-    }

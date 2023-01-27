@@ -1,5 +1,6 @@
 from time import sleep
 from typing import Dict, Optional, Literal
+from datetime import datetime, timedelta
 import requests
 import jwt
 from loguru import logger
@@ -22,6 +23,7 @@ class JWTTokenInvalidException(Exception):
 
 class FailedGettingAuthServiceResponseException(Exception):
     """ Raises when trying to query AUTH SERVICE, and it is not available or returns a bad response."""
+    pass
 
 
 class FailedInitializingAuthServiceJWTValidatorClassException(Exception):
@@ -43,6 +45,9 @@ class AuthServiceJWTValidator:
                  auth_service_get_microservice_jwt_token_api_route: str):
         """
 
+        :param auth_service_address:
+        :param auth_service_get_public_key_api_route:
+        :param auth_service_get_microservice_jwt_token_api_route:
         """
         # AUTH SERVICE endpoints addresses
         self.auth_service_address: str = auth_service_address
@@ -52,7 +57,8 @@ class AuthServiceJWTValidator:
         # Will be set at method initial_jwt_validator()
         self._public_key: Optional[str] = None
         self._key_algorithm: Optional[str] = None
-        self.microservice_jwt_token: Optional[str] = None
+        self._microservice_jwt_token: Optional[str] = None
+        self._microservice_jwt_token_expire_datetime: Optional[datetime] = None
 
     def initial_jwt_validator(self) -> None:
         """ Will initialize the class, by getting the public key from AUTH SERVICE.
@@ -63,7 +69,7 @@ class AuthServiceJWTValidator:
         Method will set following variables -
         * self._public_key: str
         * self._key_algorithm: str
-        * self.microservice_jwt_token: str
+        * self._microservice_jwt_token: str
 
         :raises FailedInitializingAuthServiceJWTValidatorClassException: In case initialization failed.
         :return: None, but will raise an exception if fails to get details from AUTH SERVICE
@@ -84,9 +90,25 @@ class AuthServiceJWTValidator:
         logger.critical(f"Failed initializing JWT validator!!! Failed after {attempts} attempts!")
         raise FailedInitializingAuthServiceJWTValidatorClassException()
 
+    def get_microservice_jwt(self) -> str:
+        """ Will return the microservice JWT token, so it cna be used by application to contact other microservices in
+        the project.
+
+        If microservice JWT token has expired, it will auto-renew it.
+
+        :return: JWT token
+        """
+        # JWT token must be valid when read by other services, so it should be considered expired a minute before
+        jwt_real_expire_time: datetime = datetime.utcnow() - timedelta(minutes=1)
+        if self._microservice_jwt_token_expire_datetime < jwt_real_expire_time:
+            self._get_microservice_jwt_token_from_auth_service()
+        return self._microservice_jwt_token
+
     def _query_auth_service_api(self, api_route: str, method: Literal["GET", "POST"]) -> Dict[str, any]:
         """ Queries AUTH SERVICE API, and returns the result as a dictionary.
 
+        :param api_route:
+        :param method: HTTP method to query AUTH SERVICE API
         :raises FailedGettingAuthServiceResponseException: In case AUTH SERVICE is not available, or the returned
                                                            response is not 200 or JSON valid
         :return: dictionary based on JSON response from AUTH SERVICE
@@ -121,7 +143,9 @@ class AuthServiceJWTValidator:
         The JWT token will be issued by AUTH SERVICE. Authentication is based on a shared secret string between current
         service and the AUTH SERVICE.
 
-        This method will set variable self.microservice_jwt_token
+        This method will set variables -
+        * self._microservice_jwt_token: str - the JWT token itself
+        * self._microservice_jwt_token_expire_datetime: datetime - time when JWT token will expire
 
         :raises FailedGettingAuthServiceResponseException: If fails to get 200 response from AUTH SERVICE
         :return: None
@@ -136,7 +160,10 @@ class AuthServiceJWTValidator:
             raise FailedGettingAuthServiceResponseException()
 
         try:
-            self.microservice_jwt_token: str = auth_service_response["jwt_token"]
+            self._microservice_jwt_token: str = auth_service_response["jwt_token"]
+
+            jwt_token_expire_unix_time: int = self.validate_token(jwt_token=self._microservice_jwt_token)["exp"]
+            self._microservice_jwt_token_expire_datetime = datetime.utcfromtimestamp(jwt_token_expire_unix_time)
         except KeyError:
             logger.critical("Wrong JSON response from AUTH_SERVICE!"
                             f"Missing field microservice_jwt_token - returned response: {auth_service_response}")
@@ -164,7 +191,7 @@ class AuthServiceJWTValidator:
             self._public_key: str = auth_service_response["public_key"]
             self._key_algorithm: str = auth_service_response["key_format_algorithm"]
         except KeyError:
-            logger.critical("Wrong JSON response from AUTH_SERVICE!"
+            logger.critical("Wrong JSON response from AUTH_SERVICE! "
                             "Missing one of the fields public_key or key_format_algorithm - "
                             f"returned response: {auth_service_response}")
             raise FailedGettingAuthServiceResponseException()
@@ -176,6 +203,7 @@ class AuthServiceJWTValidator:
 
         Checks two factors - 1) JWT signature is correct, 2) JWT expiration date is valid
 
+        :param jwt_token:
         :raises JWTTokenInvalidException: In case JWT key is signed with wrong key or has expired
         :return: Dict, the JWT token payload
         """
