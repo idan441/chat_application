@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 from mysql_connector import users_table_crud_commands, models
 from pydantic_schemas import users_schemas, admin_login_schemas, http_responses_shcemas
 from mysql_connector.database import SessionLocal, engine
-from logger.custom_logger import configure_custom_logger
 from fast_api_extensions.fast_api_dependencies import require_chat_be_microservice_jwt_token
 
 
@@ -22,9 +21,7 @@ def get_db():
         db.close()
 
 
-load_dotenv()
 app = FastAPI()
-configure_custom_logger(logs_file_path=os.environ["LOGS_FILE_PATH"])
 
 
 @app.middleware("http")

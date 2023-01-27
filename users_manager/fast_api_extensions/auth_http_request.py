@@ -1,13 +1,16 @@
 from typing import List, Optional
 
-from utils.jwt_issuer import JWTIssuer, FailedParsingJWTToken, JWTInvalidAuthException
-from utils.jwt_issuer import JWTTokenRegisteredUser, JWTTokenMicroService
+from utils.jwt_validator import AuthServiceJWTValidator, JWTInvalidAuthException, FailedParsingJWTToken
+from pydantic_schemas.jwt_token_schemas import JWTTokenRegisteredUser, JWTTokenMicroService
 from constants import JWTTypes
 
 
 """
 Includes AuthHTTPRequest class which handles verifying authentication of using sending requests to auth service using
-FastAPI framework. 
+FastAPI framework.
+
+Note - this class is based on the one with the same name in AUTH SERVICE microservice code - but this one uses
+       AuthServiceJWTValidator objects for functionalities! It is not the same code as in AUTH SERVICE but similar!
 """
 
 
@@ -39,13 +42,12 @@ class AuthHTTPRequest:
     by reading the JWT token attached. """
     AUTHORIZATION_HEADER_NAME: str = "Authorization"
 
-    def __init__(self, jwt_issuer: JWTIssuer):
+    def __init__(self, jwt_validator: AuthServiceJWTValidator):
         """
 
-        :param jwt_issuer: A JWT issuer object which should be configured to use the same key pair as the given JWTs
-                           given in the HTTP requests are signed with.
+        :param jwt_validator: A JWT validator object which handles JWT validation in front of AUTH SERVICE
         """
-        self.jwt_issuer: JWTIssuer = jwt_issuer
+        self.jwt_validator: AuthServiceJWTValidator = jwt_validator
 
     @staticmethod
     def parse_auth_bearer_header(authorization_bearer_header: str) -> str:
@@ -89,7 +91,7 @@ class AuthHTTPRequest:
         jwt_token: str = self.parse_auth_bearer_header(authorization_bearer_header=authorization_bearer_header)
 
         try:
-            token_type, jwt_token_payload_object = self.jwt_issuer.read_jwt_token(jwt_token=jwt_token)
+            token_type, jwt_token_payload_object = self.jwt_validator.read_jwt_token(jwt_token=jwt_token)
         except (FailedParsingJWTToken, JWTInvalidAuthException):
             raise AuthorizationHeaderInvalidToken("Failed reading the JWT token!")
 
@@ -114,7 +116,7 @@ class AuthHTTPRequest:
         """
         jwt_token: str = self.parse_auth_bearer_header(authorization_bearer_header=authorization_bearer_header)
         try:
-            token_type, jwt_token_payload_object = self.jwt_issuer.read_jwt_token(jwt_token=jwt_token)
+            token_type, jwt_token_payload_object = self.jwt_validator.read_jwt_token(jwt_token=jwt_token)
         except (FailedParsingJWTToken, JWTInvalidAuthException):
             raise AuthorizationHeaderInvalidToken("Failed reading the JWT token!")
 

@@ -56,17 +56,18 @@ class AuthServiceJWTValidator:
     def __init__(self,
                  auth_service_address: str,
                  auth_service_get_public_key_api_route: str,
-                 auth_service_get_microservice_jwt_token_api_route: str):
+                 auth_service_issue_microservice_jwt_token_api_route: str):
         """
 
         :param auth_service_address:
         :param auth_service_get_public_key_api_route:
-        :param auth_service_get_microservice_jwt_token_api_route:
+        :param auth_service_issue_microservice_jwt_token_api_route:
         """
         # AUTH SERVICE endpoints addresses
         self.auth_service_address: str = auth_service_address
         self.auth_service_get_public_key_api_route: str = auth_service_get_public_key_api_route
-        self.auth_service_get_microservice_jwt_token_api_route: str = auth_service_get_microservice_jwt_token_api_route
+        self.auth_service_issue_microservice_jwt_token_api_route: str = \
+            auth_service_issue_microservice_jwt_token_api_route
 
         # Will be set at method initial_jwt_validator()
         self._public_key: Optional[str] = None
@@ -167,7 +168,7 @@ class AuthServiceJWTValidator:
         try:
             auth_service_response: Dict[str, any] = self._query_auth_service_api(
                 method="POST",
-                api_route=self.auth_service_get_microservice_jwt_token_api_route
+                api_route=self.auth_service_issue_microservice_jwt_token_api_route
             )
         except FailedGettingAuthServiceResponseException:
             logger.info("Failed getting microservice JWT token from AUTH SERVICE API!")
@@ -176,7 +177,7 @@ class AuthServiceJWTValidator:
         try:
             self._microservice_jwt_token: str = auth_service_response["jwt_token"]
 
-            jwt_token_expire_unix_time: int = self.validate_token(jwt_token=self._microservice_jwt_token)["exp"]
+            jwt_token_expire_unix_time: int = self._validate_token(jwt_token=self._microservice_jwt_token)["exp"]
             self._microservice_jwt_token_expire_datetime = datetime.utcfromtimestamp(jwt_token_expire_unix_time)
         except KeyError:
             logger.critical("Wrong JSON response from AUTH_SERVICE!"

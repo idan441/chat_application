@@ -71,8 +71,8 @@ def validate_jwt_token(response: Response):
           status_code=HTTP_STATUS_CODES.HTTP_201_CREATED,
           response_model=Union[http_responses_schemas.HTTPTemplateBaseModelJWTToken,
                                http_responses_schemas.HTTPTemplateBaseModelJWTTokenIssueFailedValidation])
-def sign_service_jwt(service_auth_details: request_input_schemas.HTTPRequestIssueServiceJWTModel,
-                     response: Response):
+def issue_service_jwt(service_auth_details: request_input_schemas.HTTPRequestIssueServiceJWTModel,
+                      response: Response):
     """ Signs a JWT token which will be used to authenticate between microservices in this project """
     try:
         jwt_token: str = jwt_issuer.issue_micro_service_jwt(service_auth_details=service_auth_details)
@@ -89,11 +89,11 @@ def sign_service_jwt(service_auth_details: request_input_schemas.HTTPRequestIssu
         )
 
 
-@app.post("/sign_user_jwt",
+@app.post("/issue_user_jwt",
           status_code=HTTP_STATUS_CODES.HTTP_201_CREATED,
           response_model=http_responses_schemas.HTTPTemplateBaseModelJWTToken)
-def sign_user_jwt(user_details: request_input_schemas.HTTPRequestIssueUserJWTModel,
-                  microservice_token: str = Depends(require_chat_be_microservice_jwt_token)):
+def issue_user_jwt(user_details: request_input_schemas.HTTPRequestIssueUserJWTModel,
+                   microservice_token: str = Depends(require_chat_be_microservice_jwt_token)):
     """ Signs a JWT token which will be used by users to authenticate with other microservices in this project
 
     * This API route assumes the request is sent by a microservice which already authenticated the user.
