@@ -1,6 +1,12 @@
 # Authentication service
 This service is up for all the authentication issues in the CHAT project
 
+
+## Run service -
+```bash
+python run.py
+```
+
 ## Creating the PEM keys
 THe service requires two PEM keys to sign and to verify the tokens it creates.
 Keys can be in any supported algorithm which is supported by ```pyjwt``` . ( Note that for some of the formats you need to install cryptography ```crypto``` library )
