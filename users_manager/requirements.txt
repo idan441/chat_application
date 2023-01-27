@@ -3,3 +3,5 @@ uvicorn
 python-dotenv
 sqlalchemy==1.4.46
 loguru==0.6.0
+requests==2.25.1
+pyjwt[crypto]==2.6.0
