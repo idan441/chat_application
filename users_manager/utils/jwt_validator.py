@@ -212,6 +212,8 @@ class AuthServiceJWTValidator:
                             f"Missing field microservice_jwt_token - returned response: {auth_service_response}")
             raise FailedGettingAuthServiceResponseException()
 
+        logger.success(f"Got a microservice JWT token from AUTH SERVICE! "
+                       f"JWT token will expire at: {self._microservice_jwt_token_expire_datetime} UTC")
         return None
 
     def _set_public_key_from_auth_service(self) -> None:
@@ -243,6 +245,7 @@ class AuthServiceJWTValidator:
                             f"returned response: {auth_service_response}")
             raise FailedGettingAuthServiceResponseException()
 
+        logger.success("Got public key details from AUTH SERVICE!")
         return None
 
     def _validate_token(self, jwt_token: str) -> Dict:

@@ -1,7 +1,6 @@
 import os
 from typing import List, Union
 import uuid
-from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends, Request, Response, status as HTTP_STATUS_CODES
 from loguru import logger
 
@@ -167,13 +166,6 @@ async def root():
     return {"message": "Hello World"}
 
 
-@app.post("/chat_be/authenticate")
-async def chat_be_authenticate():
-    """ Returns a token for other microservices accessing the USER MANAGER application. The token will be used to query
-    the service """
-    return {"message": "Hello World"}
-
-
 @app.get("/chat_be/user/{user_id}",
          status_code=HTTP_STATUS_CODES.HTTP_200_OK,
          response_model=Union[http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails,
@@ -184,7 +176,7 @@ def chat_be_read_user(user_id: int,
                       db: Session = Depends(get_db),):
     """ Returns user details by its user ID """
     try:
-        user: models.User = users_table_crud_commands.get_user_by_id(db, user_id=user_id)
+        user: models.User = users_table_crud_commands.get_user_by_id(db=db, user_id=user_id)
         return http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails(
             content=user,
             text_message="Successfully returned user details"
