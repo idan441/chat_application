@@ -56,18 +56,26 @@ class AuthServiceJWTValidator:
     def __init__(self,
                  auth_service_address: str,
                  auth_service_get_public_key_api_route: str,
-                 auth_service_issue_microservice_jwt_token_api_route: str):
+                 auth_service_issue_microservice_jwt_token_api_route: str,
+                 micro_service_initial_token: str,
+                 micro_service_name: str):
         """
 
         :param auth_service_address:
         :param auth_service_get_public_key_api_route:
         :param auth_service_issue_microservice_jwt_token_api_route:
+        :param micro_service_initial_token:
+        :param micro_service_name:
         """
         # AUTH SERVICE endpoints addresses
         self.auth_service_address: str = auth_service_address
         self.auth_service_get_public_key_api_route: str = auth_service_get_public_key_api_route
         self.auth_service_issue_microservice_jwt_token_api_route: str = \
             auth_service_issue_microservice_jwt_token_api_route
+
+        # Used to authenticate in front of AUTH SERVICE (token is a shared secret with AUTH SERVICE)
+        self.micro_service_initial_token: str = micro_service_initial_token
+        self.micro_service_name: str = micro_service_name
 
         # Will be set at method initial_jwt_validator()
         self._public_key: Optional[str] = None
@@ -119,27 +127,43 @@ class AuthServiceJWTValidator:
             self._get_microservice_jwt_token_from_auth_service()
         return self._microservice_jwt_token
 
-    def _query_auth_service_api(self, api_route: str, method: Literal["GET", "POST"]) -> Dict[str, any]:
+    def _query_auth_service_api(self,
+                                api_route: str,
+                                method: Literal["GET", "POST"],
+                                authorization_jwt: Optional[str] = None,
+                                request_data: Optional[Dict] = None) -> Dict[str, any]:
         """ Queries AUTH SERVICE API, and returns the result as a dictionary.
 
         :param api_route:
         :param method: HTTP method to query AUTH SERVICE API
+        :param authorization_jwt: Optional - JWT token used to authenticate with AUTH SERVICE
+        :param request_data: Optional - JSON data to include in the HTTP request
         :raises FailedGettingAuthServiceResponseException: In case AUTH SERVICE is not available, or the returned
                                                            response is not 200 or JSON valid
         :return: dictionary based on JSON response from AUTH SERVICE
         """
-        get_public_key_endpoint: str = f"{self.auth_service_address}/{api_route}"
+        get_public_key_endpoint: str = f"{self.auth_service_address}{api_route}"
+        headers: Dict = {"Content-Type": "application/json"}
+        json_data: Dict = {}
+
+        if authorization_jwt is not None:
+            headers = {**headers, "Authorization": f"Bearer {authorization_jwt}"}
+        if request_data is not None:
+            json_data = {**json_data, **request_data}
+
         try:
             request = requests.request(
                 method=method,
                 url=get_public_key_endpoint,
+                headers=headers,
+                json=json_data,
              )
         except requests.exceptions.RequestException as e:
             logger.critical(f"Failed getting public key from AUTH SERVICE! Returned error: {e}")
             raise FailedGettingAuthServiceResponseException()
 
         status_code: int = request.status_code
-        if 200 <= status_code <= 299:
+        if not 200 <= status_code <= 299:
             logger.critical(f"AUTH SERVICE returned a bad HTTP response with status code {status_code}")
             raise FailedGettingAuthServiceResponseException()
 
@@ -168,7 +192,11 @@ class AuthServiceJWTValidator:
         try:
             auth_service_response: Dict[str, any] = self._query_auth_service_api(
                 method="POST",
-                api_route=self.auth_service_issue_microservice_jwt_token_api_route
+                api_route=self.auth_service_issue_microservice_jwt_token_api_route,
+                request_data={
+                    "micro_service_name": self.micro_service_name,
+                    "micro_service_initial_token": self.micro_service_initial_token,
+                }
             )
         except FailedGettingAuthServiceResponseException:
             logger.info("Failed getting microservice JWT token from AUTH SERVICE API!")
@@ -190,13 +218,17 @@ class AuthServiceJWTValidator:
         """ Will query AUTH SERVICE for the public key used to validate JWT tokens issued by AUTH SERVICE.
 
         This method will set variables self._public_key + self._key_algorithm
+
+        This method requires self._microservice_jwt_token to be assigned first, as AUTH SERVICE API requires a JWT token
+        in order to query for the public key.
+
         :raises FailedGettingAuthServiceResponseException: If fails to get 200 response from AUTH SERVICE
         :return: None
         """
         try:
             auth_service_response: Dict[str, any] = self._query_auth_service_api(
+                api_route=self.auth_service_get_public_key_api_route,
                 method="GET",
-                api_route=self.auth_service_get_public_key_api_route
             )
         except FailedGettingAuthServiceResponseException:
             logger.info("Failed getting public key from AUTH SERVICE API!")
@@ -230,6 +262,11 @@ class AuthServiceJWTValidator:
         except jwt.exceptions.ExpiredSignatureError:
             logger.info("A JWT which is expired was given, please refresh it")
             raise JWTTokenInvalidException("Token has expired")
+        except jwt.exceptions.InvalidAlgorithmError:
+            logger.info("Failed authenticating JWT because algorithm used for deciphering is wrong! The key algorithm "
+                        f"is: {self._key_algorithm}")
+            raise JWTTokenInvalidException("Failed deciphering JWT token with current key algorithm: Check algorithm "
+                                           "is correct or maybe JWT is badly signed")
 
         return decoded_payload
 

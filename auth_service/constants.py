@@ -1,5 +1,6 @@
 from typing import Dict
 
+
 """
 Constants file for auth service
 """
@@ -31,7 +32,6 @@ class MicroServicesNames:
     """ Authentication tokens used by different microservices int eh project in order to authenticate with auth service
         and issue a JWT token for themselves. """
     MICROSERVICES_TOKENS_DICT: Dict[str, str] = {
-
-        USERS_MANAGER: "aaa",
+        USERS_MANAGER: "secret123",
         CHAT_BE: "aaaa",
     }

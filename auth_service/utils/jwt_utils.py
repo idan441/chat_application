@@ -75,3 +75,8 @@ class JWTHelper:
         except jwt.exceptions.ExpiredSignatureError:
             logger.info("A JWT which is expired was given, please refresh it")
             raise JWTTokenInvalidException("Token has expired")
+        except jwt.exceptions.InvalidAlgorithmError:
+            logger.info("Failed authenticating JWT because algorithm used for deciphering is wrong! The key algorithm "
+                        f"is: {self._key_algorithm}")
+            raise JWTTokenInvalidException("Failed deciphering JWT token with current key algorithm: Check algorithm "
+                                           "is correct or maybe JWT is badly signed")

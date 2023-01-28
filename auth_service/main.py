@@ -23,7 +23,6 @@ app = FastAPI()
 async def http_middleware(request: Request, call_next):
     """ Sets a middleware for the FastAPI server. Also adds a contextualized logging level """
     with logger.contextualize(request_uuid=uuid.uuid4()):
-        logger.info(request.base_url)
         response: Response = await call_next(request)
         logger.info(f"status_code: {response.status_code}")
     return response
@@ -33,7 +32,7 @@ async def http_middleware(request: Request, call_next):
          status_code=HTTP_STATUS_CODES.HTTP_200_OK,
          response_model=http_responses_schemas.HTTPTemplateBaseModelPublicKey,
          )
-def get_public_key(microservice_token: str = Depends(require_microservice_jwt_token)):
+def get_public_key():
     """ Returns the public key used for authenticating the JWT tokens created by this service
 
     This route can be public, as the JWT tokens can only be signed with the private key which is known to this service

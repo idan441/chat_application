@@ -1,4 +1,5 @@
 from fastapi import Header, HTTPException, status as HTTP_STATUS_CODES
+from loguru import logger
 
 from init_objects import auth_http_request
 from fast_api_extensions.auth_http_request import AuthorizationHeaderJWTTokenNotPermitted, \
@@ -24,12 +25,15 @@ def require_microservice_jwt_token(Authorization: str = Header()):
         )
         return microservice_token
     except AuthorizationHeaderJWTTokenNotPermitted:
+        logger.info("Request failed because given JWT has no permissions to use this API route")
         raise HTTPException(status_code=HTTP_STATUS_CODES.HTTP_401_UNAUTHORIZED,
                             detail="Not permitted to use this API route")
     except AuthorizationHeaderInvalidHeaderFormat:
+        logger.info("Request failed because of authorization header content is invalid!")
         raise HTTPException(status_code=HTTP_STATUS_CODES.HTTP_401_UNAUTHORIZED,
                             detail="Authorization header content is invalid")
     except AuthorizationHeaderInvalidToken:
+        logger.info("Request failed because authorization header given has invalid JWT!")
         raise HTTPException(status_code=HTTP_STATUS_CODES.HTTP_401_UNAUTHORIZED,
                             detail="JWT given is invalid")
 
@@ -51,12 +55,15 @@ def require_chat_be_microservice_jwt_token(Authorization: str = Header()):
         )
         return microservice_token
     except AuthorizationHeaderJWTTokenNotPermitted:
+        logger.info("Request failed because given JWT has no permissions to use this API route")
         raise HTTPException(status_code=HTTP_STATUS_CODES.HTTP_401_UNAUTHORIZED,
                             detail="Not permitted to use this API route")
     except AuthorizationHeaderInvalidHeaderFormat:
+        logger.info("Request failed because of authorization header content is invalid!")
         raise HTTPException(status_code=HTTP_STATUS_CODES.HTTP_401_UNAUTHORIZED,
                             detail="Authorization header content is invalid")
     except AuthorizationHeaderInvalidToken:
+        logger.info("Request failed because authorization header given has invalid JWT!")
         raise HTTPException(status_code=HTTP_STATUS_CODES.HTTP_401_UNAUTHORIZED,
                             detail="JWT given is invalid")
 
@@ -77,11 +84,14 @@ def require_registered_user_jwt_token(Authorization: str = Header()):
         )
         return microservice_token
     except AuthorizationHeaderJWTTokenNotPermitted:
+        logger.info("Request failed because given JWT has no permissions to use this API route")
         raise HTTPException(status_code=HTTP_STATUS_CODES.HTTP_401_UNAUTHORIZED,
                             detail="Not permitted to use this API route")
     except AuthorizationHeaderInvalidHeaderFormat:
+        logger.info("Request failed because of authorization header content is invalid!")
         raise HTTPException(status_code=HTTP_STATUS_CODES.HTTP_401_UNAUTHORIZED,
                             detail="Authorization header content is invalid")
     except AuthorizationHeaderInvalidToken:
+        logger.info("Request failed because authorization header given has invalid JWT!")
         raise HTTPException(status_code=HTTP_STATUS_CODES.HTTP_401_UNAUTHORIZED,
                             detail="JWT given is invalid")
