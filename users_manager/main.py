@@ -176,7 +176,8 @@ async def chat_be_authenticate():
 
 @app.get("/chat_be/user/{user_id}",
          status_code=HTTP_STATUS_CODES.HTTP_200_OK,
-         response_model=http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails)
+         response_model=Union[http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails,
+                              http_responses_shcemas.HTTPTemplateBaseModelError])
 def chat_be_read_user(user_id: int,
                       response: Response,
                       microservice_token: str = Depends(require_chat_be_microservice_jwt_token),
