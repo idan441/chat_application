@@ -1,0 +1,5 @@
+fastapi==0.89.1
+uvicorn
+python-dotenv==0.21.0
+loguru==0.6.0
+pyjwt[crypto]==2.6.0
