@@ -129,6 +129,7 @@ def delete_user(db: Session, user: users_schemas.UserIdBaseModal) -> models.User
     :raises UserNotFoundException: In case user_id not in users table
     :return: deleted user's details
     """
+    # TODO - raise an exception if user not found
     user: models.User = get_user_by_id(db=db, user_id=user.user_id)
     db.delete(user)
     db.commit()
@@ -136,7 +137,7 @@ def delete_user(db: Session, user: users_schemas.UserIdBaseModal) -> models.User
 
 
 def is_user_exist_by_id(db: Session, user_id: users_schemas.UserIdBaseModal) -> bool:
-    """ Checks if a user exist in the DB according to user ID
+    """ Checks if a user exist in the users table according to user ID
 
     :param db:
     :param user_id:
