@@ -152,7 +152,7 @@ async def root(login_details: admin_login_schemas.LoginDetailsModal):
 
 
 @app.get("/admin/setup/database")
-async def root():
+async def setup_database():
     """ Setups the database by creating its tables
     This should be run only on first bootstrap of the application
     """
