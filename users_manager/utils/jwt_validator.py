@@ -12,8 +12,6 @@ from constants import JWTTypes
 """
 Defines a class which can validate JWT tokens issued by the AUTH SERVICE
 Public key which is needed to validate the JWT tokens will be read from AUTH SERVICE
-
-This class will use JWTReader class which is located at file .utils/jwt_reader.py in order to validate the tokens
 """
 
 
@@ -114,7 +112,7 @@ class AuthServiceJWTValidator:
         raise FailedInitializingAuthServiceJWTValidatorClassException()
 
     def get_microservice_jwt(self) -> str:
-        """ Will return the microservice JWT token, so it cna be used by application to contact other microservices in
+        """ Will return the microservice JWT token, so it can be used by application to contact other microservices in
         the project.
 
         If microservice JWT token has expired, it will auto-renew it.
@@ -159,7 +157,7 @@ class AuthServiceJWTValidator:
                 json=json_data,
              )
         except requests.exceptions.RequestException as e:
-            logger.critical(f"Failed getting public key from AUTH SERVICE! Returned error: {e}")
+            logger.critical(f"Failed getting answer from AUTH SERVICE! Returned error: {e}")
             raise FailedGettingAuthServiceResponseException()
 
         status_code: int = request.status_code

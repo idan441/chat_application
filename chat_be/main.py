@@ -3,17 +3,14 @@ import uuid
 from loguru import logger
 from functools import wraps
 
-from flask import Flask, make_response, Response, request
+from flask import Flask, make_response, Response, request, g, redirect, url_for
 
 from sqlalchemy.orm import Session, scoped_session
 from mysql_connector import models
 from mysql_connector.database import SessionLocal, engine, sessionmaker
 from mysql_connector import messages_table_crud_commands, users_table_crud_commands
-from pydantic_schemas import messages_table_schemas, users_table_schemas
-# from init_objects import jwt_validator
-
-from flask_sqlalchemy import SQLAlchemy
-
+from pydantic_schemas import messages_table_schemas, users_table_schemas, jwt_token_schemas
+from init_objects import jwt_validator, auth_http_request
 
 
 """"
@@ -23,21 +20,51 @@ CHAT BACKEND service - handles users requests and manages messages DB
 
 # Dependency
 def get_db():
-    with SessionLocal() as session:
-        return session
+    session = SessionLocal()
+    return session
 
 
 app = Flask(__name__)
 
 
-# def jwt_token_required(f):
-#     @wraps(f)
-#     def decorated_function(*args, **kwargs):
-#         if g.user is None:
-#             return redirect(url_for('login', next=request.url))
-#         return f(*args, **kwargs)
-#     return decorated_function
+@app.teardown_appcontext
+def teardown_db(exception):
+    db = g.pop(name='db', default=None)
 
+    if db is not None:
+        db.close()
+
+
+def user_jwt_token_required(f):
+    """ Makes sure the HTTP request needs a user-type JWT token
+
+    * Will validate the HTTP request sent by client includes a JWT token
+    * will verify the JWT token is of type "registered_user" and will set the user details as Flask "g" so it will be
+      available for routes to handle it.
+
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        authorization_header: str = request.headers["Authorization"]
+        user_details: jwt_token_schemas.JWTTokenRegisteredUser = auth_http_request.verify_registered_user_jwt_token(
+            authorization_bearer_header=authorization_header
+        )
+        g.user_details = user_details
+        # if g.user is None:
+        #     return "aadas"
+            # return redirect(url_for('login', next=request.url))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+@app.route("/user/who_am_i", methods=["GET"])
+@user_jwt_token_required
+def user_who_am_i():
+    """ Shows user's details according to JWT token + validating the JWT token
+
+    :return:
+    """
+    return g.user_details.json()
 
 
 @app.route("/user/login", methods=["GET"])
@@ -55,8 +82,6 @@ def user_login():
 def user_profile(db: Session = get_db()):
     """ Prints user's profile
     """
-    # user_id: int = int(request.cookies.get('user_id'))
-
     user_details: models.User = users_table_crud_commands.get_user_by_id(db=db, user_id=1)
     return user_details
 
