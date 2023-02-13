@@ -1,16 +1,19 @@
-from typing import Union, List
+from typing import Union, List, Dict
 import uuid
 from loguru import logger
 from functools import wraps
 
 from flask import Flask, make_response, Response, request, g, redirect, url_for
+from flask_pydantic import validate as pydantic_validation
 
 from sqlalchemy.orm import Session, scoped_session
 from mysql_connector import models
 from mysql_connector.database import SessionLocal, engine, sessionmaker
 from mysql_connector import messages_table_crud_commands, users_table_crud_commands
-from pydantic_schemas import messages_table_schemas, users_table_schemas, jwt_token_schemas
-from init_objects import jwt_validator, auth_http_request
+from pydantic_schemas import messages_table_schemas, users_table_schemas, jwt_token_schemas, http_responses_schemas, \
+    user_manager_service_responses_schemas
+from init_objects import jwt_validator, auth_http_request, user_manager_integration
+from utils.user_manager_integrations import FailedCreatingUserInUserManagerEmailAlreadyExistsException
 
 
 """"
@@ -67,7 +70,7 @@ def user_who_am_i():
     return g.user_details.json()
 
 
-@app.route("/user/login", methods=["GET"])
+@app.route("/user/login", methods=["POST"])
 def user_login():
     """ Logins the user
 
@@ -78,15 +81,58 @@ def user_login():
     return resp
 
 
+@app.route("/user/create", methods=["POST"])
+# @pydantic_validation()
+def user_create(db: Session = get_db()):
+    """ Will create a new user in the project. ( Will add the user in both USER MANAGER service DB and CHAT BE
+    service DB )
+
+    """
+    try:
+        new_user_details: user_manager_service_responses_schemas.UserManagerResponseUserDetailsBaseModule = \
+            user_manager_integration.create_user(email="haxaasfdafsa",
+                                                 password="aaaa",
+                                                 db_session=db)
+        logger.success(new_user_details)
+        return "User created!"
+    except FailedCreatingUserInUserManagerEmailAlreadyExistsException:
+        return "Failed creating user - email already exists"
+
+
 @app.route("/user/profile", methods=["GET"])
 def user_profile(db: Session = get_db()):
     """ Prints user's profile
     """
-    user_details: models.User = users_table_crud_commands.get_user_by_id(db=db, user_id=1)
+    user_details: models.User = users_table_crud_commands.get_user_by_id(db=db, user_id=17)
     return user_details
 
 
-@app.route("/admin/setup/database")
+@app.route("/users_details/", methods=["GET"])
+# @pydantic_validation()
+def users_details(db: Session = get_db()):
+    """ Prints a list of all existing users
+
+    """
+    users_list: List[models.User] = users_table_crud_commands.get_users_list(db=db, skip=0, limit=100)
+    users_list_json: List[Dict] = [user.json() for user in users_list]
+    return users_list_json
+
+
+@app.route("/users_details/<int:user_id>", methods=["GET"])
+# @pydantic_validation()
+def user_details_id(user_id: int, db: Session = get_db()):
+    """ Prints a list of all existing users
+
+    """
+
+    try:
+        user_details: models.User = users_table_crud_commands.get_user_by_id(db=db, user_id=user_id)
+        return user_details.json()
+    except users_table_crud_commands.UserNotFoundException:
+        return "User not found!"
+
+
+@app.route("/admin/setup/database", methods=["GET"])
 def setup_database():
     """ Setups the database by creating its tables
     This should be run only on first bootstrap of the application
@@ -139,38 +185,3 @@ def setup_database():
 #     """ Creates a new message in a chat between two users """
 #     created_message_details: models.Message = messages_table_crud_commands.create_message(db=db, message=message)
 #     return created_message_details
-#
-#
-# @app.get("/users_profile/{user_id}")
-# def get_user_profile(user_id: int, db: Session = Depends(get_db)):
-#     """ Prints user's profile
-#     """
-#     user_details: models.User = users_table_crud_commands.get_user_by_id(db=db, user_id=user_id)
-#     return user_details
-#
-#
-# @app.post("/users_profile/login")
-# def get_public_key():
-#     """ Logins a user
-#     This will authenticate user by username and password, will contact USER MANAGER service to verify user's identity,
-#     will require a user JWT token from AUTH SERVICE, and will return it to the user so he can use the application
-#     """
-#     return {1:1}
-#
-#
-# @app.get("/admin/setup/database")
-# async def setup_database():
-#     """ Setups the database by creating its tables
-#     This should be run only on first bootstrap of the application
-#     """
-#     models.Base.metadata.create_all(bind=engine)
-#     return {"message": "Finished creating tables"}
-#
-#
-# @app.get("/test")
-# async def setup_database(db: Session = Depends(get_db)):
-#     """ Setups the database by creating its tables
-#     This should be run only on first bootstrap of the application
-#     """
-#     aa = messages_table_crud_commands.get_messages(db=db, sender_id=1)
-#     return aa

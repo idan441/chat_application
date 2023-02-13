@@ -5,14 +5,13 @@ from loguru import logger
 from logger.custom_logger import configure_custom_logger
 from utils.jwt_validator import AuthServiceJWTValidator
 from utils.auth_http_request import AuthHTTPRequest
+from utils.user_manager_integrations import UserManagerIntegration
 from constants import MicroServicesNames
-
 
 """
 Will create some objects which are needed to run the AUTH SERVICE application
 Reason for using this file and not main.py is because it needs to be imported by other modules too.
 """
-
 
 with logger.contextualize(request_uuid="init"):
     load_dotenv()
@@ -28,3 +27,9 @@ with logger.contextualize(request_uuid="init"):
     )
     jwt_validator.initial_jwt_validator()
     auth_http_request = AuthHTTPRequest(jwt_validator=jwt_validator)
+    user_manager_integration = UserManagerIntegration(
+        jwt_validator=jwt_validator,
+        um_service_address=os.environ["USER_MANAGER_SERVICE_ADDRESS"],
+        um_service_create_user_route=os.environ["USER_MANAGER_SERVICE_CREATE_USER_DETAILS_ROUTE"],
+        um_service_get_user_details_route=os.environ["USER_MANAGER_SERVICE_GET_USER_DETAILS_ROUTE"]
+    )

@@ -1,8 +1,8 @@
+from typing import Dict, Union
 from sqlalchemy import Boolean, Column, Integer, String, DateTime, func, ForeignKey
 from sqlalchemy.orm import relationship
 
 from .database import Base
-
 
 """
 Defines the tables for the database using SQLAlchemy Base class
@@ -14,11 +14,23 @@ class User(Base):
     __tablename__ = "users"
 
     user_id = Column(Integer, primary_key=True, index=True)
+    email = Column(Integer, unique=True)
     nickname = Column(String, nullable=True)
     text_status = Column(String, nullable=True)
 
     # user_sent_messages = relationship("Message", back_populates="sender_id")
     # user_received_messages = relationship("Message", back_populates="receiver_id")
+
+    def json(self) -> Dict:
+        """ Returns user details as a dictionary
+
+        :return:
+        """
+        user_details_dict: Dict[str, any] = {"user_id": self.user_id,
+                                             "email": self.email,
+                                             "nickname": self.nickname,
+                                             "text_status": self.text_status}
+        return user_details_dict
 
 
 class Message(Base):

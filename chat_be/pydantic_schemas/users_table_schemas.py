@@ -1,3 +1,4 @@
+from typing import List
 from pydantic import BaseModel
 
 
@@ -29,4 +30,3 @@ class UserUpdateBaseModule(BaseModel):
     user_id: int
     nickname: str | None
     text_status: str | None
-

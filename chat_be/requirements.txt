@@ -5,3 +5,4 @@ loguru==0.6.0
 requests==2.25.1
 pyjwt[crypto]==2.6.0
 Flask==2.2.2
+Flask-Pydantic

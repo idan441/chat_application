@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from sqlalchemy.orm import Session
 import sqlalchemy.exc as sqlalchemy_exceptions
 
@@ -111,7 +111,7 @@ def is_user_exist_by_user_id(db: Session, user_id: int) -> bool:
     :return: boolean
     """
     try:
-        get_user_by_id(db=db, user_id=user_id.user_id)
+        get_user_by_id(db=db, user_id=user_id)
         return True
     except UserNotFoundException:
         return False
@@ -129,3 +129,14 @@ def is_user_exist_by_email(db: Session, email: str) -> bool:
         return True
     except UserNotFoundException:
         return False
+
+
+def get_users_list(db: Session, skip: int = 0, limit: int = 100) -> List[models.User]:
+    """ Returns a list of all users in the users table
+
+    :param db:
+    :param skip:
+    :param limit:
+    :return:
+    """
+    return db.query(models.User).offset(skip).limit(limit).all()

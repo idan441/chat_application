@@ -71,6 +71,8 @@ def read_user_details_by_id(user_id: int, response: Response, db: Session = Depe
                                http_responses_shcemas.HTTPTemplateBaseModelError])
 def create_user(user: users_schemas.UserCreateBaseModule, response: Response, db: Session = Depends(get_db)):
     """ Creates a new user """
+    # TODO - consider dropping it - as any created user should be in CHAT BE database too! Or on the other hand need UM
+    #                               to send a request to CHAT BE! Preferably have two options
     try:
         created_user_details: models.User = users_table_crud_commands.create_user(db=db, user=user)
         return http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails(
@@ -161,7 +163,7 @@ async def setup_database():
 
 
 @app.get("/admin/logout")
-async def root():
+async def admin_logout():
     """ Logs out from admin panel by deleting his session cookies """
     return {"message": "Hello World"}
 
@@ -185,5 +187,32 @@ def chat_be_read_user(user_id: int,
         response.status_code = HTTP_STATUS_CODES.HTTP_404_NOT_FOUND
         return http_responses_shcemas.HTTPTemplateBaseModelError(
             text_message="User does not exist",
+            is_success=False,
+        )
+
+
+@app.post("/chat_be/users/create",
+          status_code=HTTP_STATUS_CODES.HTTP_201_CREATED,
+          response_model=Union[http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails,
+                               http_responses_shcemas.HTTPTemplateBaseModelError])
+def chat_be_create_user(user: users_schemas.UserCreateBaseModule,
+                        response: Response,
+                        microservice_token: str = Depends(require_chat_be_microservice_jwt_token),
+                        db: Session = Depends(get_db)):
+    """ Creates a new user
+
+    This route should be used by CHAT BE service! CHAT BE also has a database which needs to create the user based on
+    this route response.
+    """
+    try:
+        created_user_details: models.User = users_table_crud_commands.create_user(db=db, user=user)
+        return http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails(
+            content=created_user_details,
+            text_message="User created successfully"
+        )
+    except users_table_crud_commands.EmailAddressAlreadyExistsException:
+        response.status_code = HTTP_STATUS_CODES.HTTP_400_BAD_REQUEST
+        return http_responses_shcemas.HTTPTemplateBaseModelError(
+            text_message="Email already registered with an existing user",
             is_success=False,
         )
