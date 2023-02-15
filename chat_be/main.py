@@ -15,7 +15,6 @@ from pydantic_schemas import messages_table_schemas, users_table_schemas, jwt_to
 from init_objects import jwt_validator, auth_http_request, user_manager_integration
 from utils.user_manager_integrations import FailedCreatingUserInUserManagerEmailAlreadyExistsException
 
-
 """"
 CHAT BACKEND service - handles users requests and manages messages DB
 """
@@ -46,6 +45,7 @@ def user_jwt_token_required(f):
       available for routes to handle it.
 
     """
+
     @wraps(f)
     def decorated_function(*args, **kwargs):
         authorization_header: str = request.headers["Authorization"]
@@ -55,8 +55,9 @@ def user_jwt_token_required(f):
         g.user_details = user_details
         # if g.user is None:
         #     return "aadas"
-            # return redirect(url_for('login', next=request.url))
+        # return redirect(url_for('login', next=request.url))
         return f(*args, **kwargs)
+
     return decorated_function
 
 
@@ -103,8 +104,29 @@ def user_create(db: Session = get_db()):
 def user_profile(db: Session = get_db()):
     """ Prints user's profile
     """
-    user_details: models.User = users_table_crud_commands.get_user_by_id(db=db, user_id=17)
+    user_details: models.User = users_table_crud_commands.get_user_by_id(db=db, user_id=17)  # TODO - sync with g
     return user_details
+
+
+@app.route("/user/profile/edit", methods=["GET"])
+def user_profile_edit(db: Session = get_db()):
+    """ Edit user's profile ( nickname + status )
+    """
+    user_updated_details = users_table_schemas.UserUpdateBaseModule(
+        user_id=17,
+        nickname="aaaa",
+        text_status="aaaa",
+    )
+    try:
+        updated_user_details: models.User = users_table_crud_commands.edit_user(
+            db=db,
+            user_details=user_updated_details
+        )
+        return updated_user_details.json()
+    except users_table_crud_commands.UserNotFoundException:
+        return "User ID not found"
+    except users_table_crud_commands.UserFailedDatabaseUpdateException:
+        return "Failed updating user in DB, try again"
 
 
 @app.route("/users_details/", methods=["GET"])
@@ -140,7 +162,6 @@ def setup_database():
     models.Base.metadata.create_all(bind=engine)
     return {"message": "Finished creating tables"}
 
-
 #
 #
 # app = FastAPI()
@@ -154,34 +175,3 @@ def setup_database():
 #         logger.info(f"status_code: {response.status_code}")
 #     return response
 #
-#
-# @app.get("/user_messages/get_unread_messages/tmo-{receiver_id}")  # TODO - debugging, later hsould have user id when logged in + the other user
-# def get_user_unread_messages(receiver_id: int, db: Session = Depends(get_db)):
-#     """ Returns users unread messages """
-#     messages: List[models.Message] = messages_table_crud_commands.get_user_unread_messages(db=db, receiver_user_id=receiver_id)
-#     return messages
-#
-#
-# @app.get("/user_messages/chat_history/{sender_id}/tmp-{receiver_id}")  # TODO - debugging, later hsould have user id when logged in + the other user
-# def get_user_unread_messages(sender_id: int, receiver_id: int, db: Session = Depends(get_db)):
-#     """ Returns users chat history with another user
-#
-#     :param sender_id: The other user who sent messages to the logged-in user
-#     :param db:
-#     :return:
-#     """
-#     chat_history_messages: List[models.Message] = messages_table_crud_commands.get_user_chat_history_with_other_user(
-#         db=db,
-#         sender_id=sender_id,
-#         receiver_user_id=receiver_id
-#     )
-#     return chat_history_messages
-#
-#
-# @app.post("/user_messages/send_message",
-#           status_code=HTTP_STATUS_CODES.HTTP_201_CREATED,
-#           )
-# def post_send_message(message: messages_table_schemas.CreateMessageBaseModal, response: Response, db: Session = Depends(get_db)):
-#     """ Creates a new message in a chat between two users """
-#     created_message_details: models.Message = messages_table_crud_commands.create_message(db=db, message=message)
-#     return created_message_details

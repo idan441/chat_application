@@ -76,23 +76,23 @@ def create_user(db: Session, user: users_table_schemas.UserCreateBaseModule) -> 
     return db_user
 
 
-def edit_user(db: Session, user: users_table_schemas.UserUpdateBaseModule) -> models.User:
+def edit_user(db: Session, user_details: users_table_schemas.UserUpdateBaseModule) -> models.User:
     """ Edits an existing user in the users table
     Will updated only fields (nickname, text_status) with a given value, fields with null value will not be updated
 
     :param db:
-    :param user:
+    :param user_details:
     :raises UserNotFoundException: In case user_id doesn't exist in users table
     :raises UserFailedDatabaseUpdateException: In case failed to update the database ( For example, trying to update an
         email with an existing email address of another user - which will make DB except as the email field is unique )
     :return: user's updated details
     """
-    db_user: models.User = get_user_by_id(db=db, user_id=user.user_id)
+    db_user: models.User = get_user_by_id(db=db, user_id=user_details.user_id)
 
-    if user.nickname is not None:
-        db_user.nickname = user.nickname
-    if user.text_status is not None:
-        db_user.text_status = user.text_status
+    if user_details.nickname is not None:
+        db_user.nickname = user_details.nickname
+    if user_details.text_status is not None:
+        db_user.text_status = user_details.text_status
 
     try:
         db.flush()

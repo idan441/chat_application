@@ -24,7 +24,9 @@ class UserCreateBaseModule(BaseModel):
 
 
 class UserUpdateBaseModule(BaseModel):
-    """ A pydantic base model for updating an existing user in CHAT BE users table
+    """ A pydantic base model for updating an existing user in CHAT BE users table. This should be used by the user
+    himself only to update his nickname and text status.
+
      Note - updating user_id or email is prohibited, and if in need - should be done also in USER MANAGER user. Doing
      that will be in another base module. """
     user_id: int
