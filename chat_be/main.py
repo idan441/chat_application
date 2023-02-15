@@ -15,6 +15,8 @@ from pydantic_schemas import messages_table_schemas, users_table_schemas, jwt_to
 from init_objects import jwt_validator, auth_http_request, user_manager_integration
 from utils.user_manager_integrations import FailedCreatingUserInUserManagerEmailAlreadyExistsException
 
+from flask_extensions.middleware import FlaskMiddleware
+
 """"
 CHAT BACKEND service - handles users requests and manages messages DB
 """
@@ -27,14 +29,14 @@ def get_db():
 
 
 app = Flask(__name__)
+app.wsgi_app = FlaskMiddleware(app.wsgi_app)
 
-
-@app.teardown_appcontext
-def teardown_db(exception):
-    db = g.pop(name='db', default=None)
-
-    if db is not None:
-        db.close()
+# @app.teardown_appcontext
+# def teardown_db(exception):
+#     db = g.pop(name='db', default=None)
+#
+#     if db is not None:
+#         db.close()
 
 
 def user_jwt_token_required(f):
@@ -162,16 +164,32 @@ def setup_database():
     models.Base.metadata.create_all(bind=engine)
     return {"message": "Finished creating tables"}
 
-#
-#
-# app = FastAPI()
-#
-#
-# @app.middleware("http")
-# async def http_middleware(request: Request, call_next):
-#     """ Sets a middleware for the FastAPI server. Also adds a contextualized logging level """
-#     with logger.contextualize(request_uuid=uuid.uuid4()):
-#         response: Response = await call_next(request)
-#         logger.info(f"status_code: {response.status_code}")
-#     return response
-#
+
+@app.route("/messages/send_message", methods=["POST"])
+def messages_send_message():
+    """ Allows a user to send a message to another user """
+    return ""
+
+
+@app.route("/messages/all_messages", methods=["GET"])
+def messages_all_messages():
+    """ Shows all messages sent to a user ever """
+    return ""
+
+
+@app.route("/messages/chat/<int:user_id>", methods=["GET"])
+def messages_chat_history():
+    """ Shows chat history of two users ( all messages sent and accepted between a user and another user ) """
+    return
+
+
+@app.route("/messages/message/<int:message_id>", methods=["DELETE"])
+def messages_delete_message():
+    """ Deletes a message sent by a user """
+    return
+
+
+@app.route("/messages/message/<int:message_id>", methods=["POST"])
+def messages_update_message():
+    """ Updates a message sent by a user """
+    return
