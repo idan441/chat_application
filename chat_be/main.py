@@ -1,9 +1,8 @@
 from typing import Union, List, Dict
 import uuid
 from loguru import logger
-from functools import wraps
 
-from flask import Flask, make_response, Response, request, g, redirect, url_for
+from flask import Flask, make_response, Response, request, redirect, url_for
 from flask_pydantic import validate as pydantic_validation
 
 from sqlalchemy.orm import Session, scoped_session
@@ -14,8 +13,11 @@ from pydantic_schemas import messages_table_schemas, users_table_schemas, jwt_to
     user_manager_service_responses_schemas
 from init_objects import jwt_validator, auth_http_request, user_manager_integration
 from utils.user_manager_integrations import FailedCreatingUserInUserManagerEmailAlreadyExistsException
-
+from utils.auth_http_request import AuthorizationHeaderInvalidToken, AuthorizationHeaderJWTTokenNotPermitted
 from flask_extensions.middleware import FlaskMiddleware
+from flask_extensions.custom_decorators import user_jwt_token_required
+from flask_extensions.custom_responses import custom_response_format
+
 
 """"
 CHAT BACKEND service - handles users requests and manages messages DB
@@ -39,40 +41,6 @@ app.wsgi_app = FlaskMiddleware(app.wsgi_app)
 #         db.close()
 
 
-def user_jwt_token_required(f):
-    """ Makes sure the HTTP request needs a user-type JWT token
-
-    * Will validate the HTTP request sent by client includes a JWT token
-    * will verify the JWT token is of type "registered_user" and will set the user details as Flask "g" so it will be
-      available for routes to handle it.
-
-    """
-
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        authorization_header: str = request.headers["Authorization"]
-        user_details: jwt_token_schemas.JWTTokenRegisteredUser = auth_http_request.verify_registered_user_jwt_token(
-            authorization_bearer_header=authorization_header
-        )
-        g.user_details = user_details
-        # if g.user is None:
-        #     return "aadas"
-        # return redirect(url_for('login', next=request.url))
-        return f(*args, **kwargs)
-
-    return decorated_function
-
-
-@app.route("/user/who_am_i", methods=["GET"])
-@user_jwt_token_required
-def user_who_am_i():
-    """ Shows user's details according to JWT token + validating the JWT token
-
-    :return:
-    """
-    return g.user_details.json()
-
-
 @app.route("/user/login", methods=["POST"])
 def user_login():
     """ Logins the user
@@ -82,6 +50,19 @@ def user_login():
     resp: Response = make_response("1")
     resp.set_cookie('user_id', "aaaa")
     return resp
+
+
+@app.route("/user/who_am_i", methods=["GET"])
+@user_jwt_token_required
+def user_who_am_i(user_details: jwt_token_schemas.JWTTokenRegisteredUser):
+    """ Shows user's details according to JWT token + validating the JWT token
+
+    Validation done by the decorator attached to this route
+
+    # TODO - debug, maybe drop it in future
+    :return:
+    """
+    return user_details.json()
 
 
 @app.route("/user/create", methods=["POST"])
@@ -103,14 +84,17 @@ def user_create(db: Session = get_db()):
 
 
 @app.route("/user/profile", methods=["GET"])
-def user_profile(db: Session = get_db()):
-    """ Prints user's profile
+@user_jwt_token_required
+def user_profile(user_id: int, db: Session = get_db()):
+    """ Prints user's profile from database
+    It can be assumed the user exist in the DB as the user introduced a valid JWT token issued by CHAT BE application
     """
-    user_details: models.User = users_table_crud_commands.get_user_by_id(db=db, user_id=17)  # TODO - sync with g
+    user_details: models.User = users_table_crud_commands.get_user_by_id(db=db, user_id=user_id)
     return user_details
 
 
 @app.route("/user/profile/edit", methods=["GET"])
+@user_jwt_token_required
 def user_profile_edit(db: Session = get_db()):
     """ Edit user's profile ( nickname + status )
     """
@@ -133,27 +117,35 @@ def user_profile_edit(db: Session = get_db()):
 
 @app.route("/users_details/", methods=["GET"])
 # @pydantic_validation()
+@user_jwt_token_required
 def users_details(db: Session = get_db()):
     """ Prints a list of all existing users
 
     """
     users_list: List[models.User] = users_table_crud_commands.get_users_list(db=db, skip=0, limit=100)
     users_list_json: List[Dict] = [user.json() for user in users_list]
-    return users_list_json
+    return custom_response_format(status_code=200,
+                                  content=users_list_json,
+                                  text_message="Successfully got users details list")
 
 
 @app.route("/users_details/<int:user_id>", methods=["GET"])
 # @pydantic_validation()
+@user_jwt_token_required
 def user_details_id(user_id: int, db: Session = get_db()):
     """ Prints a list of all existing users
 
     """
-
     try:
         user_details: models.User = users_table_crud_commands.get_user_by_id(db=db, user_id=user_id)
-        return user_details.json()
+        return custom_response_format(status_code=200,
+                                      content=user_details.json(),
+                                      text_message="Successfully got user details")
     except users_table_crud_commands.UserNotFoundException:
-        return "User not found!"
+        return custom_response_format(status_code=404,
+                                      content=None,
+                                      text_message="User not found with given ID",
+                                      is_success=False)
 
 
 @app.route("/admin/setup/database", methods=["GET"])
@@ -193,3 +185,40 @@ def messages_delete_message():
 def messages_update_message():
     """ Updates a message sent by a user """
     return
+
+
+@app.errorhandler(AuthorizationHeaderInvalidToken)
+def exception_handler(e):
+    """ Raises when a wrong authorization header is sent from client. This will occur only in Flaks routes which use the
+    decorator @user_jwt_token_required which will try to read the authorization header.
+
+    Authorization header should be - "Authorization: Bearer <JWT token>"
+    """
+    return custom_response_format(status_code=400,
+                                  is_success=False,
+                                  text_message="Wrong/Missing authorization header - "
+                                               "should be \"Authorization: Bearer <JWT token>\"")
+
+
+@app.errorhandler(AuthorizationHeaderInvalidToken)
+def exception_handler(e):
+    """ Raises when a wrong authorization header is sent from client. This will occur only in Flaks routes which use the
+    decorator @user_jwt_token_required which will try to read the authorization header.
+
+    Authorization header should be - "Authorization: Bearer <JWT token>"
+    """
+    return custom_response_format(status_code=400,
+                                  is_success=False,
+                                  text_message="Wrong/Missing authorization header - "
+                                               "should be \"Authorization: Bearer <JWT token>\"")
+
+
+@app.errorhandler(AuthorizationHeaderJWTTokenNotPermitted)
+def exception_handler(e):
+    """ Raises when an invalid JWT token is sent from client. This will occur only in Flaks routes which use the
+    decorator @user_jwt_token_required which will try to read the authorization header.
+
+    """
+    return custom_response_format(status_code=400,
+                                  is_success=False,
+                                  text_message="JWT token is invalid! Please login again")
