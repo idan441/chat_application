@@ -15,8 +15,11 @@ from init_objects import jwt_validator, auth_http_request, user_manager_integrat
 from utils.user_manager_integrations import FailedCreatingUserInUserManagerEmailAlreadyExistsException
 from utils.auth_http_request import AuthorizationHeaderInvalidToken, AuthorizationHeaderJWTTokenNotPermitted
 from flask_extensions.middleware import FlaskMiddleware
-from flask_extensions.custom_decorators import user_jwt_token_required
+from flask_extensions.custom_decorators import user_jwt_token_required, request_json_data_required, \
+    MissingAuthorizationHeader
 from flask_extensions.custom_responses import custom_response_format
+from flask_extensions.get_request_details import get_request_body, MissingRequestJSONDataField, \
+    JSONDataFieldWrongValue, ContentTypeHeaderHasWrongValueException, ContentTypeHeaderNotExistException
 
 
 """"
@@ -33,12 +36,13 @@ def get_db():
 app = Flask(__name__)
 app.wsgi_app = FlaskMiddleware(app.wsgi_app)
 
-# @app.teardown_appcontext
-# def teardown_db(exception):
-#     db = g.pop(name='db', default=None)
-#
-#     if db is not None:
-#         db.close()
+
+
+@app.route("/test", methods=["GET"])
+@request_json_data_required(string_fields=["aaa"], int_fields=["aaaa"])
+def user_login1(aaa, aaaa):
+    logger.info("hello")
+    return "hello!"
 
 
 @app.route("/user/login", methods=["POST"])
@@ -201,7 +205,7 @@ def exception_handler(e):
 
 
 @app.errorhandler(AuthorizationHeaderInvalidToken)
-def exception_handler(e):
+def exception_handler(exception):
     """ Raises when a wrong authorization header is sent from client. This will occur only in Flaks routes which use the
     decorator @user_jwt_token_required which will try to read the authorization header.
 
@@ -209,16 +213,72 @@ def exception_handler(e):
     """
     return custom_response_format(status_code=400,
                                   is_success=False,
-                                  text_message="Wrong/Missing authorization header - "
+                                  text_message="Wrong authorization header value - "
                                                "should be \"Authorization: Bearer <JWT token>\"")
 
 
 @app.errorhandler(AuthorizationHeaderJWTTokenNotPermitted)
-def exception_handler(e):
-    """ Raises when an invalid JWT token is sent from client. This will occur only in Flaks routes which use the
-    decorator @user_jwt_token_required which will try to read the authorization header.
+def exception_handler_authorization_header_jwt_token_not_permitted(exception):
+    """ Raises when a client sent a JWT token with not enough permissions to do an action.
+
+    This will occur only in Flaks routes which use the decorator @user_jwt_token_required which will try to read the
+    authorization header.
 
     """
     return custom_response_format(status_code=400,
                                   is_success=False,
-                                  text_message="JWT token is invalid! Please login again")
+                                  text_message="JWT token lack permissions to do this action")
+
+
+@app.errorhandler(MissingAuthorizationHeader)
+def exception_handler_missing_authorization_header(exception):
+    """ Raises when a client reqeust is missing a header named "Authorization" .
+
+    In CHAT BE APP - any route which requires Authorization header should be - "Authorization: Bearer <JWT token>"
+    """
+    return custom_response_format(status_code=400,
+                                  is_success=False,
+                                  text_message="Missing authorization header - following header should be attached "
+                                               "to a request \"Authorization: Bearer <JWT token>\"")
+
+
+@app.errorhandler(ContentTypeHeaderNotExistException)
+def exception_handler_content_type_header_not_exist(exception):
+    """ Raises when a client reqeust is missing a header named "Content-Type" . ( Required for JSON HTTP requests ) """
+    return custom_response_format(status_code=400,
+                                  is_success=False,
+                                  text_message="Missing Content-Type header - following header should be attached "
+                                               "to a request \"Content-Type: application/json\"")
+
+
+@app.errorhandler(ContentTypeHeaderHasWrongValueException)
+def exception_handler_content_type_header_Has_(exception):
+    """ Raises when a client reqeust has "Content-Type" header with value other than "application/json" . ( Required for
+    JSON HTTP requests ) """
+    return custom_response_format(status_code=400,
+                                  is_success=False,
+                                  text_message="Wrong value for Content-Type header - "
+                                               "should be \"Content-Type: application/json\"")
+
+
+@app.errorhandler(MissingRequestJSONDataField)
+def exception_handler_missing_request_json_data_field(exception):
+    """ Raises when a client reqeust has JSON data with missing fields.
+
+    Relates to decorator @request_json_data_required which read JSON data from HTTP requests sent by clients.
+    """
+    return custom_response_format(status_code=400,
+                                  is_success=False,
+                                  text_message="Missing JSON data fields in the HTTP request!")
+
+
+@app.errorhandler(JSONDataFieldWrongValue)
+def exception_handler_json_data_field_wrong_value(exception):
+    """ Raises when a client reqeust has JSON data with fields which have wrong type values. ( For example a filed which
+    should have a string value is having an int value, and vice versa )
+
+    Relates to decorator @request_json_data_required which read JSON data from HTTP requests sent by clients.
+    """
+    return custom_response_format(status_code=400,
+                                  is_success=False,
+                                  text_message="Missing JSON data fields in the HTTP request!")
