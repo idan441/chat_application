@@ -22,7 +22,7 @@ def custom_response_format(status_code: int,
     logger.info(f"Response returned with status code: {status_code} , "
                 f"is_success: {is_success}, text_message: {text_message}")
     if issubclass(type(content), BaseModel):
-        content = content.json()
+        content = content.dict()
 
     response_format: Dict[str, any] = {
         # A general format for all HTTP responses given by the CHAT BE application

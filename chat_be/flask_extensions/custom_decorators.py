@@ -33,7 +33,7 @@ def user_jwt_token_required(f):
     :raises AuthorizationHeaderNotExistException: In case no authorization header is sent in the request
     :raises AuthorizationHeaderInvalidToken: If authorization header is wrong or expired
     :raises AuthorizationHeaderJWTTokenNotPermitted: If JWT token is invalid or not permitted
-    :return: Flask route response
+    :return: Flask route response + injects a variables "user_id" and "user_details"
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -51,7 +51,7 @@ def user_jwt_token_required(f):
     return decorated_function
 
 
-def request_json_data_required(string_fields: List[str], int_fields: List[str]):
+def request_json_data_required(string_fields: List[str] = None, int_fields: List[str] = None):
     """ Reads JSON data attached to HTTP requests sent by client and passes it to the method related to the Flask route.
     This will validate the fields exist and their value (str/int) - and will pass them forward as method arguments
 

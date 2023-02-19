@@ -173,6 +173,7 @@ class UserManagerIntegration:
             )
 
             users_table_crud_commands.create_user(db=db_session, user=chat_be_db_user_details)
+            logger.info(f"Successfully created new user with email address - {email}")
             return created_user_details
         elif status_code == 400:
             raise FailedCreatingUserInUserManagerEmailAlreadyExistsException("Failed creating user - "

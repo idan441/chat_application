@@ -37,20 +37,14 @@ app = Flask(__name__)
 app.wsgi_app = FlaskMiddleware(app.wsgi_app)
 
 
-
-@app.route("/test", methods=["GET"])
-@request_json_data_required(string_fields=["aaa"], int_fields=["aaaa"])
-def user_login1(aaa, aaaa):
-    logger.info("hello")
-    return "hello!"
-
-
 @app.route("/user/login", methods=["POST"])
-def user_login():
+@request_json_data_required(string_fields=["email", "password"])
+def user_login(email: str, password: str):
     """ Logins the user
 
     :return:
     """
+    # TODO - complete here
     resp: Response = make_response("1")
     resp.set_cookie('user_id', "aaaa")
     return resp
@@ -66,25 +60,30 @@ def user_who_am_i(user_details: jwt_token_schemas.JWTTokenRegisteredUser):
     # TODO - debug, maybe drop it in future
     :return:
     """
-    return user_details.json()
+    return custom_response_format(status_code=200,
+                                  content=user_details,
+                                  text_message="Successfully read user details")
 
 
 @app.route("/user/create", methods=["POST"])
-# @pydantic_validation()
-def user_create(db: Session = get_db()):
+@request_json_data_required(string_fields=["email", "password"])
+def user_create(email: str, password: str, db: Session = get_db()):
     """ Will create a new user in the project. ( Will add the user in both USER MANAGER service DB and CHAT BE
     service DB )
 
     """
     try:
         new_user_details: user_manager_service_responses_schemas.UserManagerResponseUserDetailsBaseModule = \
-            user_manager_integration.create_user(email="haxaasfdafsa",
-                                                 password="aaaa",
+            user_manager_integration.create_user(email=email,
+                                                 password=password,
                                                  db_session=db)
-        logger.success(new_user_details)
-        return "User created!"
+        return custom_response_format(status_code=201,
+                                      content=new_user_details,
+                                      text_message="Successfully created new user")
     except FailedCreatingUserInUserManagerEmailAlreadyExistsException:
-        return "Failed creating user - email already exists"
+        return custom_response_format(status_code=409,
+                                      is_success=False,
+                                      text_message="Failed creating new user - email already in use")
 
 
 @app.route("/user/profile", methods=["GET"])
@@ -94,18 +93,21 @@ def user_profile(user_id: int, db: Session = get_db()):
     It can be assumed the user exist in the DB as the user introduced a valid JWT token issued by CHAT BE application
     """
     user_details: models.User = users_table_crud_commands.get_user_by_id(db=db, user_id=user_id)
-    return user_details
+    return custom_response_format(status_code=201,
+                                  content=user_details,
+                                  text_message="Successfully retrieved user details")
 
 
 @app.route("/user/profile/edit", methods=["GET"])
 @user_jwt_token_required
-def user_profile_edit(db: Session = get_db()):
+@request_json_data_required(string_fields=["nickname", "text_status"])
+def user_profile_edit(user_id: int, nickname: str, text_status: str, db: Session = get_db()):
     """ Edit user's profile ( nickname + status )
     """
     user_updated_details = users_table_schemas.UserUpdateBaseModule(
-        user_id=17,
-        nickname="aaaa",
-        text_status="aaaa",
+        user_id=user_id,
+        nickname=nickname,
+        text_status=text_status,
     )
     try:
         updated_user_details: models.User = users_table_crud_commands.edit_user(
@@ -114,13 +116,18 @@ def user_profile_edit(db: Session = get_db()):
         )
         return updated_user_details.json()
     except users_table_crud_commands.UserNotFoundException:
-        return "User ID not found"
+        return custom_response_format(status_code=404,
+                                      content=None,
+                                      text_message="User not found with given ID",
+                                      is_success=False)
     except users_table_crud_commands.UserFailedDatabaseUpdateException:
-        return "Failed updating user in DB, try again"
+        return custom_response_format(status_code=500,
+                                      content=None,
+                                      text_message="Failed updating user in DB, try again",
+                                      is_success=False)
 
 
 @app.route("/users_details/", methods=["GET"])
-# @pydantic_validation()
 @user_jwt_token_required
 def users_details(db: Session = get_db()):
     """ Prints a list of all existing users
@@ -133,15 +140,14 @@ def users_details(db: Session = get_db()):
                                   text_message="Successfully got users details list")
 
 
-@app.route("/users_details/<int:user_id>", methods=["GET"])
-# @pydantic_validation()
+@app.route("/users_details/<int:user_id_search>", methods=["GET"])
 @user_jwt_token_required
-def user_details_id(user_id: int, db: Session = get_db()):
+def user_details_id(user_id_search: int, db: Session = get_db()):
     """ Prints a list of all existing users
 
     """
     try:
-        user_details: models.User = users_table_crud_commands.get_user_by_id(db=db, user_id=user_id)
+        user_details: models.User = users_table_crud_commands.get_user_by_id(db=db, user_id=user_id_search)
         return custom_response_format(status_code=200,
                                       content=user_details.json(),
                                       text_message="Successfully got user details")
