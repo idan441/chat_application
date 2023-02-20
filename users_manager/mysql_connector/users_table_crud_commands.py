@@ -27,6 +27,12 @@ class EmailAddressAlreadyExistsException(Exception):
     pass
 
 
+class UserFailedLoginException(Exception):
+    """ A custom exception which raises if querying the users table with username and password and user isn't found with
+     both details. ( Used by method get_user_by_email_and_password() ) """
+    pass
+
+
 def get_user_by_id(db: Session, user_id: int) -> models.User:
     """ Returns a user's details from the users table according to his user ID
 
@@ -78,7 +84,7 @@ def create_user(db: Session, user: users_schemas.UserCreateBaseModule) -> models
     if is_user_exist:
         raise EmailAddressAlreadyExistsException()
 
-    fake_hashed_password = user.password + "notreallyhashed"
+    fake_hashed_password = user.password + "notreallyhashed"  # TODO - add encryption later
     db_user = models.User(email=user.email, hashed_password=fake_hashed_password)
     db.add(db_user)
     db.commit()
@@ -162,3 +168,20 @@ def is_user_exist_by_email(db: Session, email: str) -> bool:
         return True
     except UserNotFoundException:
         return False
+
+
+def get_user_by_email_and_password(db: Session, email: str, password: str) -> models.User:
+    """ Returns a user's details from the users table according to his email ( Used for login option )
+
+    :param db:
+    :param email:
+    :param password:
+    :raises UserFailedLoginException: In case user not found users table with the given email and password
+    :return: Users details
+    """
+    hashed_password = password + "notreallyhashed"  # TODO - add real encryption
+    user: models.User = db.query(models.User).\
+        filter(models.User.email.like(email), models.User.hashed_password.like(hashed_password)).first()
+    if not user:
+        raise UserFailedLoginException()
+    return user

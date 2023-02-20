@@ -39,12 +39,27 @@ app.wsgi_app = FlaskMiddleware(app.wsgi_app)
 
 @app.route("/user/login", methods=["POST"])
 @request_json_data_required(string_fields=["email", "password"])
-def user_login(email: str, password: str):
+def user_login(email: str, password: str, db: Session = get_db()):
     """ Logins the user
+
+    This route will contact USER MANAGER SERVICE and will verify the user details. If login details are correct and the
+    user is active - then CHAT BE service will contact AUTH SERVICE for a use JWT token and will return it to the user.
 
     :return:
     """
-    # TODO - complete here
+    user_login_attempt_details: user_manager_service_responses_schemas.UserManagerUserLoginResponseBaseModule = \
+        user_manager_integration.login_user(email=email,
+                                            password=password,
+                                            db_session=db)
+    if user_login_attempt_details.is_login_success:
+        if user_login_attempt_details.is_active:
+            return "YES LOGGED IN"
+        else:
+            return "User is not active"
+    else:
+        return "Wrong email or password"
+
+    # TODO - add AUTH SERVICE contact for the JWT token + test
     resp: Response = make_response("1")
     resp.set_cookie('user_id', "aaaa")
     return resp

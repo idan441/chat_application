@@ -60,7 +60,8 @@ class UserManagerIntegration:
                  jwt_validator: AuthServiceJWTValidator,
                  um_service_address: str,
                  um_service_get_user_details_route: str,
-                 um_service_create_user_route: str):
+                 um_service_create_user_route: str,
+                 um_service_login_user_route: str):
         """
 
         """
@@ -68,6 +69,7 @@ class UserManagerIntegration:
         self.um_service_address: str = um_service_address
         self.um_service_get_user_details_route: str = um_service_get_user_details_route
         self.um_service_create_user_route: str = um_service_create_user_route
+        self.um_service_login_user_route: str = um_service_login_user_route
 
     def _query_auth_service_api(self,
                                 api_route: str,
@@ -182,3 +184,31 @@ class UserManagerIntegration:
             raise BasResponseFromUserManagerException(error_message=f"Failed creating user",
                                                       status_code=status_code,
                                                       um_http_response=um_service_response)
+
+    def login_user(self, email: str, password: str, db_session: Session) -> \
+            user_manager_service_responses_schemas.UserManagerUserLoginResponseBaseModule:
+        """ Will check if user login details are correct in-front of UM microservice.
+        Two things should be checked: 1) username and password are correct 2) user is-active ( un-activated users aren't
+        allowed to use the application )
+
+        :param email:
+        :param password:
+        :param db_session:
+        :raise BasResponseFromUserManagerException: In case UM returned an unknown response (mainly 5XX)
+        :return: Login attempt details
+        """
+        full_endpoint: str = f"{self.um_service_login_user_route}"
+        status_code, um_service_response = self._query_auth_service_api(
+            api_route=full_endpoint,
+            method="POST",
+            request_data={
+                "email": email,
+                "password": password,
+            },
+            authorization_jwt=self.jwt_validator.get_microservice_jwt(),
+        )
+
+        user_login_attempt_details = user_manager_service_responses_schemas.UserManagerUserLoginResponseBaseModule. \
+            parse_obj(obj=um_service_response["content"])
+        logger.info(f"Login attempt for user {email} - UM returned: {user_login_attempt_details}")
+        return user_login_attempt_details

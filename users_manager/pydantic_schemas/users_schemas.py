@@ -38,3 +38,23 @@ class UserDetailsBaseModule(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+# For user login
+
+class UserLoginBaseModule(BaseModel):
+    """ A Pydantic base model for logging-in a user to the application
+    This will be used by CHAT BE microservice in route POST /chat_be/users/login """
+    email: str
+    password: str
+
+
+class UserLoginResultBaseModule(BaseModel):
+    """ A Pydantic base model for the UM service response for a user login
+    This will be used by CHAT BE microservice in route POST /chat_be/users/login
+
+    * is_login_success - bool, true if user succeeded login ( correct email + password )
+    * is_active - bool, if user is active or not ( according to DB )
+    """
+    is_login_success: bool
+    is_active: bool

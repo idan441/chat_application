@@ -168,11 +168,11 @@ async def admin_logout():
     return {"message": "Hello World"}
 
 
-@app.get("/chat_be/user/{user_id}",
+@app.get("/chat_be/user/details/{user_id}",
          status_code=HTTP_STATUS_CODES.HTTP_200_OK,
          response_model=Union[http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails,
                               http_responses_shcemas.HTTPTemplateBaseModelError])
-def chat_be_read_user(user_id: int,
+def chat_be_user_details_by_id(user_id: int,
                       response: Response,
                       microservice_token: str = Depends(require_chat_be_microservice_jwt_token),
                       db: Session = Depends(get_db),):
@@ -215,4 +215,48 @@ def chat_be_create_user(user: users_schemas.UserCreateBaseModule,
         return http_responses_shcemas.HTTPTemplateBaseModelError(
             text_message="Email already registered with an existing user",
             is_success=False,
+        )
+
+
+@app.post("/chat_be/users/login",
+          status_code=HTTP_STATUS_CODES.HTTP_200_OK,
+          response_model=http_responses_shcemas.HTTPTemplateBaseModelUserLoginResponse)
+def chat_be_user_login(user_details: users_schemas.UserLoginBaseModule,
+                        response: Response,
+                        microservice_token: str = Depends(require_chat_be_microservice_jwt_token),
+                        db: Session = Depends(get_db)):
+    """ Logins a new user
+
+    This route should be used by CHAT BE service! It should send user credentials to UM service in order to verify the
+    user authenticity and if is active
+    """
+    try:
+        logged_in_user_details: models.User = users_table_crud_commands.get_user_by_email_and_password(
+            db=db,
+            email=user_details.email,
+            password=user_details.password
+        )
+        if logged_in_user_details.is_active:
+            return http_responses_shcemas.HTTPTemplateBaseModelUserLoginResponse(
+                content=users_schemas.UserLoginResultBaseModule(
+                    is_login_success=True,
+                    is_active=True
+                ),
+                text_message="User details are correct and user is active - user can login to application"
+            )
+        else:
+            return http_responses_shcemas.HTTPTemplateBaseModelUserLoginResponse(
+                content=users_schemas.UserLoginResultBaseModule(
+                    is_login_success=True,
+                    is_active=False
+                ),
+                text_message="User details are correct but user is in active - therefore he can't connect",
+            )
+    except users_table_crud_commands.UserFailedLoginException:
+        return http_responses_shcemas.HTTPTemplateBaseModelUserLoginResponse(
+            content=users_schemas.UserLoginResultBaseModule(
+                is_login_success=False,
+                is_active=False
+            ),
+            text_message="Given details are wrong - either username or password are wrong",
         )

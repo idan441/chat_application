@@ -1,6 +1,6 @@
-from typing import Dict, Union, List
+from typing import Dict, List
 from pydantic import BaseModel
-from .users_schemas import UserDetailsBaseModule
+from .users_schemas import UserDetailsBaseModule, UserLoginResultBaseModule
 
 
 """
@@ -40,3 +40,13 @@ class HTTPTemplateBaseModelError(HTTPTemplateBaseModel):
 class HTTPTemplateBaseModelAdminLoginResponse(HTTPTemplateBaseModel):
     """ Return response for admin login """
     content: Dict
+
+
+class HTTPTemplateBaseModelUserLoginResponse(HTTPTemplateBaseModel):
+    """ Return response for application user login attempts
+
+    This will be used by CHAT BE microservice in route POST /chat_be/users/login , which will send user credentials to
+    UM service in order to validate user credentials + assure he is active (un-active users are not allowed to log in!)
+    """
+    content: UserLoginResultBaseModule
+

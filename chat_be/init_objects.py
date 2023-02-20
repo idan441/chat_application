@@ -31,5 +31,6 @@ with logger.contextualize(request_uuid="init"):
         jwt_validator=jwt_validator,
         um_service_address=os.environ["USER_MANAGER_SERVICE_ADDRESS"],
         um_service_create_user_route=os.environ["USER_MANAGER_SERVICE_CREATE_USER_DETAILS_ROUTE"],
-        um_service_get_user_details_route=os.environ["USER_MANAGER_SERVICE_GET_USER_DETAILS_ROUTE"]
+        um_service_get_user_details_route=os.environ["USER_MANAGER_SERVICE_GET_USER_DETAILS_ROUTE"],
+        um_service_login_user_route=os.environ["USER_MANAGER_SERVICE_LOGIN_USER_DETAILS_ROUTE"],
     )
