@@ -48,8 +48,7 @@ def user_login(email: str, password: str, db: Session = get_db()):
     """
     user_login_attempt_details: user_manager_service_responses_schemas.UserManagerUserLoginResponseBaseModule = \
         user_manager_integration.login_user(email=email,
-                                            password=password,
-                                            db_session=db)
+                                            password=password)
     if user_login_attempt_details.is_login_success:
         if user_login_attempt_details.is_active:
             jwt_token: str = auth_service_integration.issue_user_jwt_token(user_id=1,email="aaa",is_active=True)

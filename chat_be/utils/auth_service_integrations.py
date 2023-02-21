@@ -94,14 +94,13 @@ class AuthServiceIntegration:
         status_code: int = request.status_code
 
         try:
-            um_service_json_response: Dict[str, any] = request.json()
+            auth_service_json_response: Dict[str, any] = request.json()
         except ValueError:
             logger.critical(f"Failed parsing the JSON response from AUTH service! ")
             raise FailedGettingAuthServiceResponseException()
 
-        logger.info(f"Successfully got response from AUTH service with status code {status_code} "
-                    f"and JSON content: {um_service_json_response}")
-        return status_code, um_service_json_response
+        logger.info(f"Successfully got response from AUTH service with status code {status_code}")
+        return status_code, auth_service_json_response
 
     def issue_user_jwt_token(self, user_id: int, email: str, is_active: bool) -> str:
         """ Will request AUTH service to issue a user JWT token
