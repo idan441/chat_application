@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel
 
 
@@ -23,3 +24,4 @@ class UserManagerUserLoginResponseBaseModule(BaseModel):
     """
     is_login_success: bool
     is_active: bool
+    user_details: Optional[UserManagerResponseUserDetailsBaseModule] = None

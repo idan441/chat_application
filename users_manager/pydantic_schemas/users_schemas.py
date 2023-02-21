@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel
 
 
@@ -55,6 +56,8 @@ class UserLoginResultBaseModule(BaseModel):
 
     * is_login_success - bool, true if user succeeded login ( correct email + password )
     * is_active - bool, if user is active or not ( according to DB )
+    * user_details
     """
     is_login_success: bool
     is_active: bool
+    user_details: Optional[UserDetailsBaseModule] = None

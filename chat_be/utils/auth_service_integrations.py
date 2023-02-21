@@ -3,6 +3,7 @@ import requests
 from loguru import logger
 
 from .jwt_validator import AuthServiceJWTValidator
+from pydantic_schemas.user_manager_service_responses_schemas import UserManagerResponseUserDetailsBaseModule
 
 
 """
@@ -102,15 +103,13 @@ class AuthServiceIntegration:
         logger.info(f"Successfully got response from AUTH service with status code {status_code}")
         return status_code, auth_service_json_response
 
-    def issue_user_jwt_token(self, user_id: int, email: str, is_active: bool) -> str:
+    def issue_user_jwt_token(self, user_details: UserManagerResponseUserDetailsBaseModule) -> str:
         """ Will request AUTH service to issue a user JWT token
 
         AUTH response for route POST /issue_user_jwt is -
         * 201 created - with JWT token attached
 
-        :param user_id:
-        :param email: email for the new user
-        :param is_active
+        :param user_details: User details given as a pydantic base model (includes fields user_id, email and is_active)
         :raise FailedGettingAuthServiceResponseException: in case AUTH service is not available or its response is not
                                                           JSON parse-able
         :raise BasResponseFromAuthServiceException: In case AUTH returned an unknown response (mainly 5XX)
@@ -121,9 +120,9 @@ class AuthServiceIntegration:
             api_route=full_endpoint,
             method="POST",
             request_data={
-                "user_id": user_id,
-                "email": email,
-                "is_active": is_active,
+                "user_id": user_details.user_id,
+                "email": user_details.email,
+                "is_active": user_details.is_active,
             },
             authorization_jwt=self.jwt_validator.get_microservice_jwt(),
         )
@@ -131,7 +130,7 @@ class AuthServiceIntegration:
         if status_code == 201:
             user_jwt_token = auth_service_response["jwt_token"]  # TODO - improve AUTH service response to include "content" field which will include jwt_token
 
-            logger.info(f"Successfully issued a user JWT token for user ID {user_id} email {email}")
+            logger.info(f"Successfully issued a user JWT token for user ID {user_details.user_id} with details: {user_details}")
             return user_jwt_token
         else:
             raise BasResponseFromAuthServiceException(error_message=f"Failed issuing a user JWT token",

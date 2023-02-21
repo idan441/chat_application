@@ -20,7 +20,6 @@ from flask_extensions.custom_responses import custom_response_format
 from flask_extensions.get_request_details import get_request_body, MissingRequestJSONDataField, \
     JSONDataFieldWrongValue, ContentTypeHeaderHasWrongValueException, ContentTypeHeaderNotExistException
 
-
 """"
 CHAT BACKEND service - handles users requests and manages messages DB
 """
@@ -51,18 +50,27 @@ def user_login(email: str, password: str, db: Session = get_db()):
                                             password=password)
     if user_login_attempt_details.is_login_success:
         if user_login_attempt_details.is_active:
-            jwt_token: str = auth_service_integration.issue_user_jwt_token(user_id=1,email="aaa",is_active=True)
-            return f"YES LOGGED IN {jwt_token}"
+            user_details = user_login_attempt_details.user_details
+            jwt_token: str = auth_service_integration.issue_user_jwt_token(user_details=user_details)
+            return custom_response_format(status_code=200,
+                                          content=http_responses_schemas.HTTPResponseUserLogin(
+                                              jwt_token=jwt_token,
+                                              user_details=user_details,
+                                          ),
+                                          text_message="Successfully logged in")
         else:
-            return "User is not active"
+            return custom_response_format(status_code=403,
+                                          is_success=False,
+                                          text_message="User is not active")
     else:
-        return "Wrong email or password"
-
+        return custom_response_format(status_code=400,
+                                      is_success=False,
+                                      text_message="Wrong email or password")
 
 
 @app.route("/user/who_am_i", methods=["GET"])
 @user_jwt_token_required
-def user_who_am_i(user_details: jwt_token_schemas.JWTTokenRegisteredUser):
+def user_who_am_i(user_id: int, user_details: jwt_token_schemas.JWTTokenRegisteredUser):
     """ Shows user's details according to JWT token + validating the JWT token
 
     Validation done by the decorator attached to this route

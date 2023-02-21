@@ -240,7 +240,8 @@ def chat_be_user_login(user_details: users_schemas.UserLoginBaseModule,
             return http_responses_shcemas.HTTPTemplateBaseModelUserLoginResponse(
                 content=users_schemas.UserLoginResultBaseModule(
                     is_login_success=True,
-                    is_active=True
+                    is_active=True,
+                    user_details=logged_in_user_details
                 ),
                 text_message="User details are correct and user is active - user can login to application"
             )
@@ -256,7 +257,7 @@ def chat_be_user_login(user_details: users_schemas.UserLoginBaseModule,
         return http_responses_shcemas.HTTPTemplateBaseModelUserLoginResponse(
             content=users_schemas.UserLoginResultBaseModule(
                 is_login_success=False,
-                is_active=False
+                is_active=False,
             ),
             text_message="Given details are wrong - either username or password are wrong",
         )
