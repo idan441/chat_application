@@ -2,8 +2,7 @@ from typing import Union, List, Dict
 import uuid
 from loguru import logger
 
-from flask import Flask, make_response, Response, request, redirect, url_for
-from flask_pydantic import validate as pydantic_validation
+from flask import Flask
 
 from sqlalchemy.orm import Session, scoped_session
 from mysql_connector import models

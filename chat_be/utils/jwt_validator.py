@@ -42,7 +42,7 @@ class JWTInvalidAuthException(Exception):
 
 
 class FailedParsingJWTToken(Exception):
-    """ Raises when fails to read a JWT token. This should be used after verifying the JWT token is authenticated so it
+    """ Raises when fails to read a JWT token. This should be used after verifying the JWT token is authenticated, so it
     will raise if the JWT token is missing fields. ( "email", "is_active" etc... ) """
     pass
 

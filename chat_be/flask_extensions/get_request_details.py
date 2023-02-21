@@ -20,7 +20,7 @@ class ContentTypeHeaderNotExistException(Exception):
 
 class ContentTypeHeaderHasWrongValueException(Exception):
     """ Raises in case a "Content-Type" header field sent by the client has wrong value ( Needs to be "application/json"
-     as the CHAT BE service supports only this format. ) """
+     as the CHAT BE service supports only this format ) """
     pass
 
 
@@ -96,5 +96,4 @@ def get_request_body(string_fields: List[str], int_fields: List[str]):
                                                   f"in the JSON data sent! (Value should be int)")
 
     return variables_to_pass
-
 

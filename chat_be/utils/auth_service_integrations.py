@@ -5,7 +5,6 @@ from loguru import logger
 from .jwt_validator import AuthServiceJWTValidator
 
 
-
 """
 Class for integrating with authentication service (AUTH SERVICE)
 """
@@ -90,7 +89,7 @@ class AuthServiceIntegration:
             )
         except requests.exceptions.RequestException as e:
             raise FailedGettingAuthServiceResponseException("Failed getting answer from AUTH service! "
-                                                                   f"Returned error: {e}")
+                                                            f"Returned error: {e}")
 
         status_code: int = request.status_code
 

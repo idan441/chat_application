@@ -137,8 +137,9 @@ class UserManagerIntegration:
         elif status_code == 404:
             raise UserNotExistInUserManagerException(f"No user found in UM database with user ID {user_id}")
         else:
-            raise BasResponseFromUserManagerException(error_message=f"Failed creating user - code {status_code} "
-                                                                    f"reason: {um_service_response}")
+            raise BasResponseFromUserManagerException(error_message="Failed creating user",
+                                                      status_code=status_code,
+                                                      um_http_response=um_service_response)
 
     def create_user(self, email: str, password: str, db_session: Session) -> \
             user_manager_service_responses_schemas.UserManagerResponseUserDetailsBaseModule:
@@ -185,7 +186,7 @@ class UserManagerIntegration:
                                                       status_code=status_code,
                                                       um_http_response=um_service_response)
 
-    def login_user(self, email: str, password: str, db_session: Session) -> \
+    def login_user(self, email: str, password: str) -> \
             user_manager_service_responses_schemas.UserManagerUserLoginResponseBaseModule:
         """ Will check if user login details are correct in-front of UM microservice.
         Two things should be checked: 1) username and password are correct 2) user is-active ( un-activated users aren't
@@ -193,7 +194,6 @@ class UserManagerIntegration:
 
         :param email:
         :param password:
-        :param db_session:
         :raise BasResponseFromUserManagerException: In case UM returned an unknown response (mainly 5XX)
         :return: Login attempt details
         """

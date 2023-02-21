@@ -3,8 +3,8 @@ from functools import wraps, update_wrapper
 
 from init_objects import auth_http_request
 from pydantic_schemas.jwt_token_schemas import JWTTokenRegisteredUser
-from flask_extensions.get_request_details import get_header_value_from_request, get_request_body, HeaderNotExistException
-
+from flask_extensions.get_request_details import get_header_value_from_request, get_request_body, \
+    HeaderNotExistException
 
 
 """
