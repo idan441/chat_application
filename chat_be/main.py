@@ -11,7 +11,7 @@ from mysql_connector.database import SessionLocal, engine, sessionmaker
 from mysql_connector import messages_table_crud_commands, users_table_crud_commands
 from pydantic_schemas import messages_table_schemas, users_table_schemas, jwt_token_schemas, http_responses_schemas, \
     user_manager_service_responses_schemas
-from init_objects import jwt_validator, auth_http_request, user_manager_integration
+from init_objects import jwt_validator, auth_http_request, user_manager_integration, auth_service_integration
 from utils.user_manager_integrations import FailedCreatingUserInUserManagerEmailAlreadyExistsException
 from utils.auth_http_request import AuthorizationHeaderInvalidToken, AuthorizationHeaderJWTTokenNotPermitted
 from flask_extensions.middleware import FlaskMiddleware
@@ -53,16 +53,13 @@ def user_login(email: str, password: str, db: Session = get_db()):
                                             db_session=db)
     if user_login_attempt_details.is_login_success:
         if user_login_attempt_details.is_active:
-            return "YES LOGGED IN"
+            jwt_token: str = auth_service_integration.issue_user_jwt_token(user_id=1,email="aaa",is_active=True)
+            return f"YES LOGGED IN {jwt_token}"
         else:
             return "User is not active"
     else:
         return "Wrong email or password"
 
-    # TODO - add AUTH SERVICE contact for the JWT token + test
-    resp: Response = make_response("1")
-    resp.set_cookie('user_id', "aaaa")
-    return resp
 
 
 @app.route("/user/who_am_i", methods=["GET"])
