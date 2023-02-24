@@ -161,7 +161,7 @@ def user_details_id(user_details: jwt_token_schemas.JWTTokenRegisteredUser, user
 
 
 @app.route("/admin/setup/database", methods=["GET"])
-def setup_database():
+def admin_setup_database():
     """ Setups the database by creating its tables
     This should be run only on first bootstrap of the application
     """
@@ -171,7 +171,7 @@ def setup_database():
 
 @app.route("/admin/debug/read_jwt", methods=["GET"])
 @user_jwt_token_required
-def user_who_am_i(user_details: jwt_token_schemas.JWTTokenRegisteredUser):
+def admin_debug_read_jwt(user_details: jwt_token_schemas.JWTTokenRegisteredUser):
     """ Shows user's details according to JWT token + validating the JWT token
 
     Validation done by the decorator attached to this route
@@ -182,34 +182,126 @@ def user_who_am_i(user_details: jwt_token_schemas.JWTTokenRegisteredUser):
                                   text_message="Successfully read user details")
 
 
-@app.route("/messages/send_message", methods=["POST"])
-def messages_send_message():
+@app.route("/admin/debug/all_messages", methods=["GET"])
+@user_jwt_token_required
+def admin_debug_all_messages(user_details: jwt_token_schemas.JWTTokenRegisteredUser, db: Session = get_db()):
+    """ Shows all messages sent ever """
+    messages_list: List[models.Message] = messages_table_crud_commands.get_messages(db=db)
+    messages_list_json: List[Dict] = [message.json() for message in messages_list]
+    return custom_response_format(status_code=200,
+                                  content=messages_list_json,
+                                  text_message="Successfully got messages list")
+
+
+@app.route("/messages/message", methods=["POST"])
+@user_jwt_token_required
+@request_json_data_required(string_fields=["message_content", "receiver_id"])
+def messages_send_message(user_details: jwt_token_schemas.JWTTokenRegisteredUser,
+                          message_content: str,
+                          receiver_id: int,
+                          db: Session = get_db()):
     """ Allows a user to send a message to another user """
-    return ""
-
-
-@app.route("/messages/all_messages", methods=["GET"])
-def messages_all_messages():
-    """ Shows all messages sent to a user ever """
-    return ""
-
-
-@app.route("/messages/chat/<int:user_id>", methods=["GET"])
-def messages_chat_history():
-    """ Shows chat history of two users ( all messages sent and accepted between a user and another user ) """
-    return
+    message_to_add = messages_table_schemas.CreateMessageBaseModal(
+        message_content=message_content,
+        sender_id=user_details.user_id,
+        receiver_id=receiver_id,
+    )
+    message_details: models.Message = messages_table_crud_commands.create_message(db=db, message=message_to_add)
+    return custom_response_format(status_code=200,
+                                  content=message_details.json(),
+                                  text_message="Successfully sent message")
 
 
 @app.route("/messages/message/<int:message_id>", methods=["DELETE"])
-def messages_delete_message():
-    """ Deletes a message sent by a user """
-    return
+@user_jwt_token_required
+def messages_delete_message(user_details: jwt_token_schemas.JWTTokenRegisteredUser,
+                            message_id: int,
+                            db: Session = get_db()):
+    """ Deletes a message sent by a user
+
+    A user can only delete messages sent by him
+    """
+    try:
+        sender_id: int = user_details.user_id
+        if not messages_table_crud_commands.is_message_sent_by_user(db=db, message_id=message_id, sender_id=sender_id):
+            return custom_response_format(status_code=403,
+                                          content=None,
+                                          is_success=False,
+                                          text_message=f"No permissions to delete message - user {sender_id} "
+                                                       f"is not the user who sent message {message_id}")
+        deleted_message_details: models.Message = messages_table_crud_commands.delete_message(
+            db=db,
+            message_id=message_id
+        )
+        return custom_response_format(status_code=200,
+                                      content=deleted_message_details.json(),
+                                      text_message="Successfully deleted message")
+    except messages_table_crud_commands.MessageNotFoundException:
+        return custom_response_format(status_code=404,
+                                      content=None,
+                                      is_success=False,
+                                      text_message="No message with such ID")
+
+
+@app.route("/messages/chat/<int:receiver_id>", methods=["GET"])
+@user_jwt_token_required
+def messages_chat_history(user_details: jwt_token_schemas.JWTTokenRegisteredUser, receiver_id: int,
+                          db: Session = get_db()):
+    """ Shows chat history of two users ( all messages sent and accepted between a user and another user )
+
+    sender ID - the logged-in user identified yb JWT token
+    receiver ID - the other user who sends messages to the user
+    """
+    sender_id: int = user_details.user_id
+    chat_messages_list: List[models.Message] = messages_table_crud_commands.get_user_chat_history_with_other_user(
+        sender_id=sender_id,
+        receiver_id=receiver_id,
+        db=db,
+    )
+    chat_messages_list_json: List[Dict] = [message.json() for message in chat_messages_list]
+    return custom_response_format(status_code=200,
+                                  content=chat_messages_list_json,
+                                  text_message=f"Successfully got chat messages list "
+                                               f"between {sender_id} and {receiver_id}")
 
 
 @app.route("/messages/message/<int:message_id>", methods=["POST"])
-def messages_update_message():
-    """ Updates a message sent by a user """
-    return
+@user_jwt_token_required
+@request_json_data_required(string_fields=["message_content"])
+def messages_update_message(user_details: jwt_token_schemas.JWTTokenRegisteredUser,
+                            message_id: int,
+                            message_content: str,
+                            db: Session = get_db()):
+    """ Updates a message sent by a user
+
+    A user can only edit a message sent by him
+    """
+    try:
+        sender_id: int = user_details.user_id
+        if not messages_table_crud_commands.is_message_sent_by_user(db=db, message_id=message_id, sender_id=sender_id):
+            return custom_response_format(status_code=403,
+                                          content=None,
+                                          is_success=False,
+                                          text_message=f"No permissions to edit message - user {sender_id} "
+                                                       f"is not the user who sent message {message_id}")
+        updated_message_details: models.Message = messages_table_crud_commands.edit_message(
+            db=db,
+            message_id=message_id,
+            message_content=message_content,
+        )
+        return custom_response_format(status_code=200,
+                                      content=updated_message_details.json(),
+                                      text_message="Successfully edited message")
+    except messages_table_crud_commands.MessageNotFoundException:
+        return custom_response_format(status_code=404,
+                                      content=None,
+                                      is_success=False,
+                                      text_message="No message with such ID")
+    except messages_table_crud_commands.MessageFailedDatabaseUpdateException:
+        return custom_response_format(status_code=500,
+                                      content=None,
+                                      is_success=False,
+                                      text_message="Failed updating the message due to application issues - try again")
 
 
 @app.errorhandler(AuthorizationHeaderInvalidToken)
@@ -234,7 +326,7 @@ def exception_handler(exception):
     """
     return custom_response_format(status_code=400,
                                   is_success=False,
-                                  text_message="Wrong authorization header value - "
+                                  text_message="Wrong authorization header value ( Probably expired / wrong token ) - "
                                                "should be \"Authorization: Bearer <JWT token>\"")
 
 
@@ -253,7 +345,7 @@ def exception_handler_authorization_header_jwt_token_not_permitted(exception):
 
 @app.errorhandler(MissingAuthorizationHeader)
 def exception_handler_missing_authorization_header(exception):
-    """ Raises when a client reqeust is missing a header named "Authorization" .
+    """ Raises when a client reqeust is missing a header named "Authorization"
 
     In CHAT BE APP - any route which requires Authorization header should be - "Authorization: Bearer <JWT token>"
     """
@@ -265,7 +357,7 @@ def exception_handler_missing_authorization_header(exception):
 
 @app.errorhandler(ContentTypeHeaderNotExistException)
 def exception_handler_content_type_header_not_exist(exception):
-    """ Raises when a client reqeust is missing a header named "Content-Type" . ( Required for JSON HTTP requests ) """
+    """ Raises when a client reqeust is missing a header named "Content-Type" ( Required for JSON HTTP requests ) """
     return custom_response_format(status_code=400,
                                   is_success=False,
                                   text_message="Missing Content-Type header - following header should be attached "
@@ -273,8 +365,8 @@ def exception_handler_content_type_header_not_exist(exception):
 
 
 @app.errorhandler(ContentTypeHeaderHasWrongValueException)
-def exception_handler_content_type_header_Has_(exception):
-    """ Raises when a client reqeust has "Content-Type" header with value other than "application/json" . ( Required for
+def exception_handler_content_type_header_has_wrong_value(exception):
+    """ Raises when a client reqeust has "Content-Type" header with value other than "application/json" ( Required for
     JSON HTTP requests ) """
     return custom_response_format(status_code=400,
                                   is_success=False,
@@ -295,7 +387,7 @@ def exception_handler_missing_request_json_data_field(exception):
 
 @app.errorhandler(JSONDataFieldWrongValue)
 def exception_handler_json_data_field_wrong_value(exception):
-    """ Raises when a client reqeust has JSON data with fields which have wrong type values. ( For example a filed which
+    """ Raises when a client reqeust has JSON data with fields which have wrong type values ( For example a filed which
     should have a string value is having an int value, and vice versa )
 
     Relates to decorator @request_json_data_required which read JSON data from HTTP requests sent by clients.

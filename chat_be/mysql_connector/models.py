@@ -47,3 +47,18 @@ class Message(Base):
 
     # sender_user = relationship("User", back_populates="user_id")
     # receiver_user = relationship("User", back_populates="user_id")
+
+    def json(self) -> Dict:
+        """ Returns message details as a dictionary
+
+        :return:
+        """
+        message_details_dict: Dict[str, any] = {"message_id": self.message_id,
+                                                "message_content": self.message_content,
+                                                "sender_id": self.sender_id,
+                                                "receiver_id": self.receiver_id,
+                                                "is_message_read": self.is_message_read,
+                                                "sent_datetime": self.sent_datetime,
+                                                "received_datetime": self.received_datetime,
+                                                }
+        return message_details_dict

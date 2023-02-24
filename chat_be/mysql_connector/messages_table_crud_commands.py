@@ -8,6 +8,7 @@ from loguru import logger
 from . import models, users_table_crud_commands
 from pydantic_schemas import users_table_schemas, messages_table_schemas
 
+
 """
 Defines top-level methods for manipulating data in the messages table
 """
@@ -32,7 +33,7 @@ def get_message_by_id(db: Session, message_id: int) -> models.Message:
 
     :param db:
     :param message_id:
-    :raises MessageNotFoundException: In case user_id not in users table
+    :raises MessageNotFoundException: In case message_id does not in messages table
     :return:
     """
     message: models.Message = db.query(models.Message).filter(models.Message.message_id == message_id).first()
@@ -57,19 +58,40 @@ def create_message(db: Session, message: messages_table_schemas.CreateMessageBas
     return message
 
 
-def delete_message(db: Session, message_details: messages_table_schemas.MessageIdBaseModal) -> models.Message:
+def delete_message(db: Session, message_id: int) -> models.Message:
     """ Deletes an existing message in the messages table
 
     :param db:
-    :param message_details: The message ID
+    :param message_id:
     :raises MessageNotFoundException: In case message_id doesn't exist in messages table
-    :return: user's updated details
+    :return: deleted message details
     """
-    # TODO - raise an exception if message not found
-    message: models.User = get_message_by_id(db=db, message_id=message_details.message_id)
+    message: models.User = get_message_by_id(db=db, message_id=message_id)
     db.delete(message)
     db.commit()
     return message
+
+
+def edit_message(db: Session, message_id: int, message_content: str) -> models.Message:
+    """ Edits an existing message in the messages table
+
+    :param db:
+    :param message_id:
+    :param message_content: New content for the message
+    :raises MessageNotFoundException: In case message_id does not in messages table
+    :raises MessageFailedDatabaseUpdateException: In case failed to update the message due to DB issues
+    :return: edited message updated details
+    """
+    db_message: models.Message = get_message_by_id(db=db, message_id=message_id)
+    db_message.message_content = message_content
+
+    try:
+        db.flush()
+        db.commit()
+    except sqlalchemy_exceptions.IntegrityError:
+        db.rollback()
+        raise MessageFailedDatabaseUpdateException()
+    return db_message
 
 
 def is_message_exist_by_message_id(db: Session, message_id: int) -> bool:
@@ -84,6 +106,28 @@ def is_message_exist_by_message_id(db: Session, message_id: int) -> bool:
         return True
     except MessageNotFoundException:
         return False
+
+
+def is_message_sent_by_user(db: Session, sender_id: int, message_id: int) -> bool:
+    """ Check if a message was sent by a user, return a bool value
+
+    This will be used to verify permissions of user to delete/edit a message - as he can only do this ot messages sent
+    by him. If message id doesn't exist then will raise
+
+
+    :param db:
+    :param sender_id:
+    :param message_id:
+    :raises MessageNotFoundException: In case message_id does not in messages table
+    :return: bool - true if message was sent by user
+    """
+    message: models.Message = get_message_by_id(db=db, message_id=message_id)
+    logger.debug(f"Checking if {message_id} was sent by user {sender_id} - message details: {message.json()}")
+    if int(message.sender_id) == sender_id:
+        logger.debug(f"Message {message_id} was indeed sent by user {sender_id} - returning 'True'")
+        return True
+    logger.debug(f"Message {message_id} was not sent by user {sender_id} - returning 'False'")
+    return False
 
 
 def get_messages(db: Session,
@@ -144,21 +188,21 @@ def get_user_unread_messages(db: Session, receiver_user_id: int) -> List[models.
     return messages
 
 
-def get_user_chat_history_with_other_user(db: Session, receiver_user_id: int, sender_id: int) -> List[models.Message]:
+def get_user_chat_history_with_other_user(db: Session, receiver_id: int, sender_id: int) -> List[models.Message]:
     """ Returns all messages chat history between two users ( Including the case of each user being the sender or
     receiver - that is both messages sent by user A to B and from user B to A will be included )
 
     :param db:
-    :param receiver_user_id:
+    :param receiver_id:
     :param sender_id:
     :return:
     """
     messages_sent_by_receiver: List[models.Message] = get_messages(db=db,
-                                                                   receiver_id=receiver_user_id,
+                                                                   receiver_id=receiver_id,
                                                                    sender_id=sender_id)
     messages_sent_by_sender: List[models.Message] = get_messages(db=db,
                                                                  receiver_id=sender_id,
-                                                                 sender_id=receiver_user_id)
+                                                                 sender_id=receiver_id)
     messages_combined: List[models.Message] = list(set(messages_sent_by_receiver).union(messages_sent_by_sender))
     return messages_combined
 
