@@ -45,8 +45,7 @@ def user_jwt_token_required(f):
         user_details: JWTTokenRegisteredUser = auth_http_request.verify_registered_user_jwt_token(
             authorization_bearer_header=authorization_header
         )
-        user_id: int = user_details.user_id
-        return f(user_id, user_details, *args, **kwargs)
+        return f(user_details, *args, **kwargs)
 
     return decorated_function
 

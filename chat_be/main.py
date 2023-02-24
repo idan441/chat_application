@@ -1,6 +1,4 @@
-from typing import Union, List, Dict
-import uuid
-from loguru import logger
+from typing import List, Dict
 
 from flask import Flask
 
@@ -10,7 +8,7 @@ from mysql_connector.database import SessionLocal, engine, sessionmaker
 from mysql_connector import messages_table_crud_commands, users_table_crud_commands
 from pydantic_schemas import messages_table_schemas, users_table_schemas, jwt_token_schemas, http_responses_schemas, \
     user_manager_service_responses_schemas
-from init_objects import jwt_validator, auth_http_request, user_manager_integration, auth_service_integration
+from init_objects import user_manager_integration, auth_service_integration
 from utils.user_manager_integrations import FailedCreatingUserInUserManagerEmailAlreadyExistsException
 from utils.auth_http_request import AuthorizationHeaderInvalidToken, AuthorizationHeaderJWTTokenNotPermitted
 from flask_extensions.middleware import FlaskMiddleware
@@ -37,7 +35,7 @@ app.wsgi_app = FlaskMiddleware(app.wsgi_app)
 
 @app.route("/user/login", methods=["POST"])
 @request_json_data_required(string_fields=["email", "password"])
-def user_login(email: str, password: str, db: Session = get_db()):
+def user_login(email: str, password: str):
     """ Logins the user
 
     This route will contact USER MANAGER SERVICE and will verify the user details. If login details are correct and the
@@ -68,21 +66,6 @@ def user_login(email: str, password: str, db: Session = get_db()):
                                       text_message="Wrong email or password")
 
 
-@app.route("/user/who_am_i", methods=["GET"])
-@user_jwt_token_required
-def user_who_am_i(user_id: int, user_details: jwt_token_schemas.JWTTokenRegisteredUser):
-    """ Shows user's details according to JWT token + validating the JWT token
-
-    Validation done by the decorator attached to this route
-
-    # TODO - debug, maybe drop it in future
-    :return:
-    """
-    return custom_response_format(status_code=200,
-                                  content=user_details,
-                                  text_message="Successfully read user details")
-
-
 @app.route("/user/create", methods=["POST"])
 @request_json_data_required(string_fields=["email", "password"])
 def user_create(email: str, password: str, db: Session = get_db()):
@@ -106,24 +89,25 @@ def user_create(email: str, password: str, db: Session = get_db()):
 
 @app.route("/user/profile", methods=["GET"])
 @user_jwt_token_required
-def user_profile(user_id: int, db: Session = get_db()):
+def user_profile(user_details: jwt_token_schemas.JWTTokenRegisteredUser, db: Session = get_db()):
     """ Prints user's profile from database
     It can be assumed the user exist in the DB as the user introduced a valid JWT token issued by CHAT BE application
     """
-    user_details: models.User = users_table_crud_commands.get_user_by_id(db=db, user_id=user_id)
+    created_user_details: models.User = users_table_crud_commands.get_user_by_id(db=db, user_id=user_details.user_id)
     return custom_response_format(status_code=201,
-                                  content=user_details,
+                                  content=created_user_details.json(),
                                   text_message="Successfully retrieved user details")
 
 
-@app.route("/user/profile/edit", methods=["GET"])
+@app.route("/user/profile/edit", methods=["POST"])
 @user_jwt_token_required
 @request_json_data_required(string_fields=["nickname", "text_status"])
-def user_profile_edit(user_id: int, nickname: str, text_status: str, db: Session = get_db()):
+def user_profile_edit(user_details: jwt_token_schemas.JWTTokenRegisteredUser, nickname: str, text_status: str,
+                      db: Session = get_db()):
     """ Edit user's profile ( nickname + status )
     """
     user_updated_details = users_table_schemas.UserUpdateBaseModule(
-        user_id=user_id,
+        user_id=user_details.user_id,
         nickname=nickname,
         text_status=text_status,
     )
@@ -147,7 +131,7 @@ def user_profile_edit(user_id: int, nickname: str, text_status: str, db: Session
 
 @app.route("/users_details/", methods=["GET"])
 @user_jwt_token_required
-def users_details(db: Session = get_db()):
+def users_details(user_details: jwt_token_schemas.JWTTokenRegisteredUser, db: Session = get_db()):
     """ Prints a list of all existing users
 
     """
@@ -158,14 +142,14 @@ def users_details(db: Session = get_db()):
                                   text_message="Successfully got users details list")
 
 
-@app.route("/users_details/<int:user_id_search>", methods=["GET"])
+@app.route("/users_details/<int:user_id>", methods=["GET"])
 @user_jwt_token_required
-def user_details_id(user_id_search: int, db: Session = get_db()):
+def user_details_id(user_details: jwt_token_schemas.JWTTokenRegisteredUser, user_id: int, db: Session = get_db()):
     """ Prints a list of all existing users
 
     """
     try:
-        user_details: models.User = users_table_crud_commands.get_user_by_id(db=db, user_id=user_id_search)
+        user_details: models.User = users_table_crud_commands.get_user_by_id(db=db, user_id=user_id)
         return custom_response_format(status_code=200,
                                       content=user_details.json(),
                                       text_message="Successfully got user details")
@@ -183,6 +167,19 @@ def setup_database():
     """
     models.Base.metadata.create_all(bind=engine)
     return {"message": "Finished creating tables"}
+
+
+@app.route("/admin/debug/read_jwt", methods=["GET"])
+@user_jwt_token_required
+def user_who_am_i(user_details: jwt_token_schemas.JWTTokenRegisteredUser):
+    """ Shows user's details according to JWT token + validating the JWT token
+
+    Validation done by the decorator attached to this route
+    :return:
+    """
+    return custom_response_format(status_code=200,
+                                  content=user_details,
+                                  text_message="Successfully read user details")
 
 
 @app.route("/messages/send_message", methods=["POST"])

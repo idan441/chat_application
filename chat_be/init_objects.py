@@ -15,8 +15,12 @@ Reason for using this file and not main.py is because it needs to be imported by
 """
 
 with logger.contextualize(request_uuid="init"):
+    logger.info("Now starting to run init.py - trying to create all helper objects")
     load_dotenv()
+    logger.success("Successfully loaded ENV VARs")
+
     configure_custom_logger(logs_file_path=os.environ["LOGS_FILE_PATH"])
+    logger.success("Successfully configured custom logger for the application")
 
     jwt_validator = AuthServiceJWTValidator(
         auth_service_address=os.environ["AUTH_SERVICE_ADDRESS"],
@@ -40,3 +44,4 @@ with logger.contextualize(request_uuid="init"):
         auth_service_address=os.environ["AUTH_SERVICE_ADDRESS"],
         auth_service_issue_user_jwt_token_route=os.environ["AUTH_SERVICE_ISSUE_USER_JWT_TOKEN_API_ROUTE"]
     )
+    logger.success("Finished initializing objects used by Flask app, now can proceed to running the Flask app itself")
