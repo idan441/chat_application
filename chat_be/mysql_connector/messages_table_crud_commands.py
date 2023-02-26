@@ -3,6 +3,7 @@ from typing import List, Optional, Dict
 from sqlalchemy.orm import Session
 import sqlalchemy.exc as sqlalchemy_exceptions
 from sqlalchemy.sql.elements import BinaryExpression
+from sqlalchemy import func, or_
 from loguru import logger
 
 from . import models, users_table_crud_commands
@@ -186,6 +187,43 @@ def get_user_unread_messages(db: Session, receiver_user_id: int) -> List[models.
                                                   receiver_id=receiver_user_id,
                                                   filter_unread_messages_only=True)
     return messages
+
+
+def get_user_chats_list(db: Session, user_id: int) -> List[Dict[str, any]]:
+    """ Will return a list of all users who have a chat with a user + their details + statistics.
+    This will be used to list the chats in the application UI, where the user can choose to view a specific chat history
+
+    :param db:
+    :param user_id:
+    :return: A list of dicts with details about each chat of a user with another user
+    """
+    logger.debug(f"Looking for chats list for user {user_id}")
+    # TODO - improve it
+    query = db.query(
+        models.Message.receiver_id,
+        models.Message.sender_id,
+        func.count(models.Message.message_id),
+        func.max(models.Message.sent_datetime)
+    ).filter(
+        or_(models.Message.sender_id == user_id, models.Message.receiver_id == user_id)
+    ).group_by(
+        models.Message.receiver_id
+    ).all()
+
+    dict_results_list = []
+    for row in query:
+        receiver_id, sender_id, message_count, newest_message = row
+        dict_results_list.append(
+            {
+                "receiver_id": receiver_id,
+                "sender_id": sender_id,
+                "messages_count": message_count,
+                "newest_message": newest_message,
+            }
+        )
+
+    logger.debug(f"Returned following chats list returned for user {user_id} : {dict_results_list}")
+    return dict_results_list
 
 
 def get_user_chat_history_with_other_user(db: Session, receiver_id: int, sender_id: int) -> List[models.Message]:

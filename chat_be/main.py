@@ -243,28 +243,6 @@ def messages_delete_message(user_details: jwt_token_schemas.JWTTokenRegisteredUs
                                       text_message="No message with such ID")
 
 
-@app.route("/messages/chat/<int:receiver_id>", methods=["GET"])
-@user_jwt_token_required
-def messages_chat_history(user_details: jwt_token_schemas.JWTTokenRegisteredUser, receiver_id: int,
-                          db: Session = get_db()):
-    """ Shows chat history of two users ( all messages sent and accepted between a user and another user )
-
-    sender ID - the logged-in user identified yb JWT token
-    receiver ID - the other user who sends messages to the user
-    """
-    sender_id: int = user_details.user_id
-    chat_messages_list: List[models.Message] = messages_table_crud_commands.get_user_chat_history_with_other_user(
-        sender_id=sender_id,
-        receiver_id=receiver_id,
-        db=db,
-    )
-    chat_messages_list_json: List[Dict] = [message.json() for message in chat_messages_list]
-    return custom_response_format(status_code=200,
-                                  content=chat_messages_list_json,
-                                  text_message=f"Successfully got chat messages list "
-                                               f"between {sender_id} and {receiver_id}")
-
-
 @app.route("/messages/message/<int:message_id>", methods=["POST"])
 @user_jwt_token_required
 @request_json_data_required(string_fields=["message_content"])
@@ -302,6 +280,43 @@ def messages_update_message(user_details: jwt_token_schemas.JWTTokenRegisteredUs
                                       content=None,
                                       is_success=False,
                                       text_message="Failed updating the message due to application issues - try again")
+
+
+@app.route("/chats", methods=["GET"])
+@user_jwt_token_required
+def chats_list(user_details: jwt_token_schemas.JWTTokenRegisteredUser,
+               db: Session = get_db()):
+    """ Return a list of all chats user is having with other users ( without returning the messages themselves but only
+    a list of users who interacted with the logged-in user )
+    """
+    user_id: int = user_details.user_id
+    chat_list = messages_table_crud_commands.get_user_chats_list(user_id=user_id, db=db)
+    return custom_response_format(status_code=200,
+                                  content=chat_list,
+                                  text_message=f"Successfully returned chats list for user {user_id}")
+
+
+@app.route("/chats/<int:receiver_id>", methods=["GET"])
+@user_jwt_token_required
+def chats_history_between_users(user_details: jwt_token_schemas.JWTTokenRegisteredUser,
+                                receiver_id: int,
+                                db: Session = get_db()):
+    """ Shows chat history of two users ( all messages sent and accepted between a user and another user )
+
+    sender ID - the logged-in user identified yb JWT token
+    receiver ID - the other user who sends messages to the user
+    """
+    sender_id: int = user_details.user_id
+    chat_messages_list: List[models.Message] = messages_table_crud_commands.get_user_chat_history_with_other_user(
+        sender_id=sender_id,
+        receiver_id=receiver_id,
+        db=db,
+    )
+    chat_messages_list_json: List[Dict] = [message.json() for message in chat_messages_list]
+    return custom_response_format(status_code=200,
+                                  content=chat_messages_list_json,
+                                  text_message=f"Successfully got chat messages list "
+                                               f"between {sender_id} and {receiver_id}")
 
 
 @app.errorhandler(AuthorizationHeaderInvalidToken)
