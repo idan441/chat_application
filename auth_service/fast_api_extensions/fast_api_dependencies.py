@@ -4,7 +4,7 @@ from loguru import logger
 from init_objects import auth_http_request
 from fast_api_extensions.auth_http_request import AuthorizationHeaderJWTTokenNotPermitted, \
     AuthorizationHeaderInvalidHeaderFormat, AuthorizationHeaderInvalidToken
-from constants import MicroServicesNames
+from constants import MicroservicesCodeNames
 
 
 """
@@ -51,7 +51,7 @@ def require_chat_be_microservice_jwt_token(Authorization: str = Header()):
     try:
         microservice_token = auth_http_request.verify_micro_service_jwt_token(
             authorization_bearer_header=Authorization,
-            micro_service_name=MicroServicesNames.CHAT_BE,
+            micro_service_name=MicroservicesCodeNames.CHAT_BE,
         )
         return microservice_token
     except AuthorizationHeaderJWTTokenNotPermitted:

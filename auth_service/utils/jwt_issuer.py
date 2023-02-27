@@ -3,8 +3,7 @@ from loguru import logger
 
 from pydantic_schemas import request_input_schemas
 from utils.jwt_utils import JWTHelper, JWTTokenInvalidException
-from constants import JWTTypes, MicroServicesNames
-
+from constants import JWTTypes
 
 """
 JWT Issue class - which is used by auth service to issue JWT tokens and verify them.
@@ -30,6 +29,12 @@ class JWTInvalidAuthException(Exception):
      This exception is used when a microservice tries to authenticate with auth service and uses an invalid token.
      ( And not when a microservice tries to issue a JWT token ) """
     pass
+
+
+class WrongMicroserviceCodeNameGivenException(Exception):
+    """ Raises when a microservice tries to authenticate but sends a wrong microservice code name. ( Code name is a
+    string which represents the service and used by AUTH SERVICE to map a token for each micro service )
+    ( Used solely in JWTIssuer class ) """
 
 
 class JWTTokenMicroService:
@@ -68,19 +73,27 @@ class JWTIssuer:
     def __init__(self,
                  private_key: str,
                  public_key: str,
+                 key_algorithm: str,
                  expiration_time_in_hours: int,
-                 key_algorithm: str):
+                 microservices_tokens_mapping: Dict[str, str]):
         """
 
         :param private_key:
         :param public_key:
-        :param expiration_time_in_hours:
         :param key_algorithm:
+        :param expiration_time_in_hours: Expiration time for JWT token issued
+        :param microservices_tokens_mapping: A mapping of microservices code names and their respective shared token
+                                             with AUTH SERVICE. Example: {"user_manager": "secret", ... }
+                                             This dict should be generated using MicroservicesTokenMappingHelper class
+
         """
         self._jwt_helper = JWTHelper(private_key=private_key,
                                      public_key=public_key,
                                      expiration_time_in_hours=expiration_time_in_hours,
                                      key_algorithm=key_algorithm)
+
+        # Load a mapping of microservices code names and their respective shared token with AUTH service
+        self._microservices_shared_tokens_mapping: Dict[str, str] = microservices_tokens_mapping
 
     def get_public_key(self) -> str:
         """ Returns the public key used to sign JWT tokens
@@ -96,8 +109,27 @@ class JWTIssuer:
         """
         return self._jwt_helper.get_key_algorithm()
 
-    @staticmethod
-    def _authenticate_service_token(micro_service_initial_token: str, micro_service_name: str) -> bool:
+    def get_microservice_shared_token_by_name(self, micro_service_name: str) -> str:
+        """ Will return the shared token secret of AUTH SERVICE with another microservice in the project according to
+        its name.
+
+        Currently supported -
+        * USER MANAGER service - with code "user_manager"
+        * CHAT BE service - with code "chat_be"
+
+        :param micro_service_name:
+        :raises WrongMicroserviceCodeNameGivenException: In case micro_service_name is wrong and not recognized by AUTH
+                                                         SERVICE
+        :return: A str
+        """
+        try:
+            return self._microservices_shared_tokens_mapping[micro_service_name]
+        except KeyError:
+            raise WrongMicroserviceCodeNameGivenException(f"given service name {micro_service_name} doesn't exist! "
+                                                          f"Available options: "
+                                                          f"{self._microservices_shared_tokens_mapping.keys()}")
+
+    def _authenticate_service_token(self, micro_service_initial_token: str, micro_service_name: str) -> bool:
         """ Authenticates a microservice token. If microservice is authenticated then the auth servie will issue it a
         JWT token, so it can interact with other service.
 
@@ -111,16 +143,16 @@ class JWTIssuer:
         :return: bool, true in case initial token is correct for the service
         """
         try:
-            if MicroServicesNames.MICROSERVICES_TOKENS_DICT[micro_service_name] == micro_service_initial_token:
-                logger.success(f"successfully authenticated as micro-service {micro_service_name}")
+            if self.get_microservice_shared_token_by_name(micro_service_name) == micro_service_initial_token:
+                logger.success(f"Client successfully authenticated as micro-service {micro_service_name}")
                 return True
             logger.error("Failed to authenticate in front of auth service - "
                          f"given token for micro service name {micro_service_name} was wrong!")
             return False
-        except KeyError:
+        except WrongMicroserviceCodeNameGivenException:
             logger.error("Failed to authenticate in front of auth service - "
                          f"given service name {micro_service_name} doesn't exist! "
-                         f"Available options: {MicroServicesNames.MICROSERVICES_TOKENS_DICT.keys()}")
+                         f"Available options: {self._microservices_shared_tokens_mapping.keys()}")
             return False
 
     def issue_micro_service_jwt(self,

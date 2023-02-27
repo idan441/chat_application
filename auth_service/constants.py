@@ -21,17 +21,31 @@ class JWTTypes:
     MICROSERVICE: Dict[str, str] = {TOKEN_TYPE_DICT_KEY: MICROSERVICE_KEY_VALUE}
 
 
-class MicroServicesNames:
+class MicroservicesCodeNames:
     """ List of registered microservices in the project.
     These microservices can communicate with each other based on microservice JWT tokens issued by AUTH SERVICE.
-     Each of these JWT tokens will have a field named "service_name" with one of the above values.
-     """
+    Each of these JWT tokens will have a field named "service_name" with one of the above values.
+    """
     USERS_MANAGER = "user_manager"
     CHAT_BE = "chat_be"
 
-    """ Authentication tokens used by different microservices int eh project in order to authenticate with auth service
-        and issue a JWT token for themselves. """
-    MICROSERVICES_TOKENS_DICT: Dict[str, str] = {
-        USERS_MANAGER: "secret123",
-        CHAT_BE: "aaaa",
+
+class MicroservicesTokenMapping:
+    """ Represent a mapping of microservices code names and their shared token with AUTH SERVICE
+    The secret tokens are used to authenticate microservice in front of AUTH SERVICE
+    """
+
+    """ Authentication tokens used by different microservices in the project in order to authenticate with auth service
+        and issue a JWT token for themselves.
+        
+        This mapping contains -
+        1) microservice code name - a string representing the microservice in all JWT tokens issued by AUTH SERVICE
+           and is used by microservice to authenticate in front of AUTH SERVICE to issue a token for themselves.
+        2) The ENV VAR which contains a shared token between the microservice and AUTH SERVICE. This will be used by
+           microservices to authenticate in front of AUTH SERVICE.
+           * Note - the ENV VAR itself will be read at init_objects.py file after loading them using dotenv package
+        """
+    MICROSERVICES_TOKENS_ENV_VARS_DICT: Dict[str, str] = {
+        MicroservicesCodeNames.USERS_MANAGER: "AUTH_SERVICE_USER_MANAGER_SHARED_SECRET",
+        MicroservicesCodeNames.CHAT_BE: "AUTH_SERVICE_CHAT_BE_SHARED_SECRET",
     }

@@ -1,6 +1,6 @@
 from typing import Union
 import uuid
-from fastapi import FastAPI, Request, Response, Header, Depends, HTTPException, status as HTTP_STATUS_CODES
+from fastapi import FastAPI, Request, Response, Depends, status as HTTP_STATUS_CODES
 from loguru import logger
 
 from pydantic_schemas import http_responses_schemas, request_input_schemas

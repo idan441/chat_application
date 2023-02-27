@@ -13,7 +13,7 @@ def configure_custom_logger(logs_file_path: str) -> None:
     :param logs_file_path:
     :return: None
     """
-    logger.remove(0)
+    # logger.remove(0)
     logger.add(logs_file_path,
                format="{time} | {level} | {extra[request_uuid]} | Message : {message}",
                colorize=False,
