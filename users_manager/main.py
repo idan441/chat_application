@@ -71,6 +71,8 @@ def read_user_details_by_id(user_id: int, response: Response, db: Session = Depe
                                http_responses_shcemas.HTTPTemplateBaseModelError])
 def create_user(user: users_schemas.UserCreateBaseModule, response: Response, db: Session = Depends(get_db)):
     """ Creates a new user """
+    # TODO - consider dropping it - as any created user should be in CHAT BE database too! Or on the other hand need UM
+    #                               to send a request to CHAT BE! Preferably have two options
     try:
         created_user_details: models.User = users_table_crud_commands.create_user(db=db, user=user)
         return http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails(
@@ -152,7 +154,7 @@ async def root(login_details: admin_login_schemas.LoginDetailsModal):
 
 
 @app.get("/admin/setup/database")
-async def root():
+async def setup_database():
     """ Setups the database by creating its tables
     This should be run only on first bootstrap of the application
     """
@@ -161,16 +163,16 @@ async def root():
 
 
 @app.get("/admin/logout")
-async def root():
+async def admin_logout():
     """ Logs out from admin panel by deleting his session cookies """
     return {"message": "Hello World"}
 
 
-@app.get("/chat_be/user/{user_id}",
+@app.get("/chat_be/user/details/{user_id}",
          status_code=HTTP_STATUS_CODES.HTTP_200_OK,
          response_model=Union[http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails,
                               http_responses_shcemas.HTTPTemplateBaseModelError])
-def chat_be_read_user(user_id: int,
+def chat_be_user_details_by_id(user_id: int,
                       response: Response,
                       microservice_token: str = Depends(require_chat_be_microservice_jwt_token),
                       db: Session = Depends(get_db),):
@@ -186,4 +188,76 @@ def chat_be_read_user(user_id: int,
         return http_responses_shcemas.HTTPTemplateBaseModelError(
             text_message="User does not exist",
             is_success=False,
+        )
+
+
+@app.post("/chat_be/users/create",
+          status_code=HTTP_STATUS_CODES.HTTP_201_CREATED,
+          response_model=Union[http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails,
+                               http_responses_shcemas.HTTPTemplateBaseModelError])
+def chat_be_create_user(user: users_schemas.UserCreateBaseModule,
+                        response: Response,
+                        microservice_token: str = Depends(require_chat_be_microservice_jwt_token),
+                        db: Session = Depends(get_db)):
+    """ Creates a new user
+
+    This route should be used by CHAT BE service! CHAT BE also has a database which needs to create the user based on
+    this route response.
+    """
+    try:
+        created_user_details: models.User = users_table_crud_commands.create_user(db=db, user=user)
+        return http_responses_shcemas.HTTPTemplateBaseModelSingleUserDetails(
+            content=created_user_details,
+            text_message="User created successfully"
+        )
+    except users_table_crud_commands.EmailAddressAlreadyExistsException:
+        response.status_code = HTTP_STATUS_CODES.HTTP_400_BAD_REQUEST
+        return http_responses_shcemas.HTTPTemplateBaseModelError(
+            text_message="Email already registered with an existing user",
+            is_success=False,
+        )
+
+
+@app.post("/chat_be/users/login",
+          status_code=HTTP_STATUS_CODES.HTTP_200_OK,
+          response_model=http_responses_shcemas.HTTPTemplateBaseModelUserLoginResponse)
+def chat_be_user_login(user_details: users_schemas.UserLoginBaseModule,
+                        response: Response,
+                        microservice_token: str = Depends(require_chat_be_microservice_jwt_token),
+                        db: Session = Depends(get_db)):
+    """ Logins a new user
+
+    This route should be used by CHAT BE service! It should send user credentials to UM service in order to verify the
+    user authenticity and if is active
+    """
+    try:
+        logged_in_user_details: models.User = users_table_crud_commands.get_user_by_email_and_password(
+            db=db,
+            email=user_details.email,
+            password=user_details.password
+        )
+        if logged_in_user_details.is_active:
+            return http_responses_shcemas.HTTPTemplateBaseModelUserLoginResponse(
+                content=users_schemas.UserLoginResultBaseModule(
+                    is_login_success=True,
+                    is_active=True,
+                    user_details=logged_in_user_details
+                ),
+                text_message="User details are correct and user is active - user can login to application"
+            )
+        else:
+            return http_responses_shcemas.HTTPTemplateBaseModelUserLoginResponse(
+                content=users_schemas.UserLoginResultBaseModule(
+                    is_login_success=True,
+                    is_active=False
+                ),
+                text_message="User details are correct but user is in active - therefore he can't connect",
+            )
+    except users_table_crud_commands.UserFailedLoginException:
+        return http_responses_shcemas.HTTPTemplateBaseModelUserLoginResponse(
+            content=users_schemas.UserLoginResultBaseModule(
+                is_login_success=False,
+                is_active=False,
+            ),
+            text_message="Given details are wrong - either username or password are wrong",
         )

@@ -23,7 +23,7 @@ class AuthorizationHeaderInvalidHeaderFormat(Exception):
 
 class AuthorizationHeaderInvalidToken(Exception):
     """ Raises when AuthHTTPRequest fails to read the JWT token attached to it. This can happen from two reasons:
-    1) JWT token is signed with a wrong private key. ( Note - in such case make sure PEM key-pairs weren't stolen! )
+    1) JWT token is signed with a wrong private key. (Note - in such case make sure PEM key-pairs weren't stolen!)
     2) JWT token has expired. ( In such case the registered user or microservice need to issue a new JWT token )
 
     If this exception raises - that means the authorization bearer header is formatted correct and that the issue is
@@ -32,7 +32,7 @@ class AuthorizationHeaderInvalidToken(Exception):
 
 
 class AuthorizationHeaderJWTTokenNotPermitted(Exception):
-    """ Raises when a given JWT is not permitized to use the FastAPI route. This raises by AuthHTTPRequest after
+    """ Raises when a given JWT is not permitted to use the FastAPI route. This raises by AuthHTTPRequest after
     successfully reading the authorization header and verifying the JWT authenticity. This error is related to
     permission not satisfied for the microservice or registered using sending the JWT token."""
 

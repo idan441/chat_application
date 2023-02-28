@@ -49,10 +49,10 @@ def get_public_key():
 @app.post("/validate_jwt_token",
           status_code=HTTP_STATUS_CODES.HTTP_201_CREATED,
           response_model=http_responses_schemas.HTTPTemplateBaseModelJWTTokenValidation)
-def validate_jwt_token(response: Response):
+def validate_jwt_token(jwt_token_details: request_input_schemas.HTTPRequestValidateJWTTokenModel, response: Response):
     """ Validate if a given JWT token was issued by the auth service.
         If token has expired - it will be considered not validated, even if it was issued by auth service. """
-    jwt_token: str = "test"
+    jwt_token: str = jwt_token_details.jwt_token
     if jwt_issuer.is_token_valid(jwt_token=jwt_token):
         return http_responses_schemas.HTTPTemplateBaseModelJWTTokenValidation(
             is_jwt_valid=True,

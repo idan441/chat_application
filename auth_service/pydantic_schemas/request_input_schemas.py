@@ -21,6 +21,14 @@ class HTTPRequestIssueUserJWTModel(BaseModel):
 
      Used by API route /sign_user_jwt
      """
-    user_id: str
+    user_id: int
     email: str
     is_active: bool
+
+
+class HTTPRequestValidateJWTTokenModel(BaseModel):
+    """ A pydantic scheme for HTTP requests used to validate a JWT token issued by auth service
+
+     Used by API route /validate_jwt_token
+     """
+    jwt_token: str
