@@ -2,7 +2,7 @@ from typing import Dict
 
 
 """
-Constants file for auth service
+Constants file CHAT BE service
 """
 
 
